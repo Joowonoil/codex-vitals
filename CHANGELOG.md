@@ -4,9 +4,9 @@ All notable changes to Codex Vitals will be documented here.
 
 ## 1.0 - 2026-06-23
 
-- Rebranded the app from Codex Switchboard to Codex Vitals.
+- Rebranded the app as Codex Vitals.
 - Added a pulse/gauge app icon and Vitals-oriented menu bar symbol.
-- Migrated legacy local Codex Switchboard app support data into the new Codex Vitals app support folder on first launch.
+- Migrated legacy local app support data into the new Codex Vitals app support folder on first launch.
 - Added local display aliases for saved accounts.
 - Added an in-popover settings panel for Launch at Login.
 - Moved settings and quit controls into the top toolbar and simplified the footer.

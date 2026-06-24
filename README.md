@@ -91,7 +91,7 @@ The installer will be created at `dist/CodexVitals-<version>.pkg`.
 
 Codex Vitals is local-first and never syncs tokens or exposes a remote service.
 
-On first launch, Codex Vitals copies existing local data from `~/Library/Application Support/CodexSwitchboard/` into `~/Library/Application Support/CodexVitals/` when the new folder is empty. The legacy folder is left untouched.
+On first launch, Codex Vitals can copy existing local data from a legacy app-support folder into `~/Library/Application Support/CodexVitals/` when the new folder is empty. The legacy folder is left untouched.
 
 ### Local Files
 

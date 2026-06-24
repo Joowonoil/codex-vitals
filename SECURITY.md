@@ -15,7 +15,7 @@ Codex Vitals assumes:
 
 Codex Vitals stores token-containing files under `~/Library/Application Support/CodexVitals/`. Sensitive files are written with `0600` permissions, and token/backups directories are owner-only. The app writes `~/.codex/auth.json` only after an explicit manual switch action.
 
-If `~/Library/Application Support/CodexVitals/` is empty and a legacy `~/Library/Application Support/CodexSwitchboard/` folder exists, Codex Vitals copies the legacy local data into the new folder. The legacy folder is not deleted or modified by this migration.
+If `~/Library/Application Support/CodexVitals/` is empty and a legacy app-support folder exists, Codex Vitals copies the legacy local data into the new folder. The legacy folder is not deleted or modified by this migration.
 
 Codex Vitals does not intentionally log access tokens, refresh tokens, ID tokens, bearer headers, OAuth response bodies, or full auth JSON.
 
