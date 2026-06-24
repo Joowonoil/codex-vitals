@@ -2,6 +2,7 @@ import Foundation
 
 enum AppInfo {
     static let name = "Codex Vitals"
+    static let homepageURL = URL(string: "https://ramterstudio.com/codex-vitals/")!
     static let repositoryURL = URL(string: "https://github.com/Joowonoil/codex-vitals")!
     static let releasesURL = URL(string: "https://github.com/Joowonoil/codex-vitals/releases")!
     static let studioURL = URL(string: "https://ramterstudio.com")!
