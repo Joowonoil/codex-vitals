@@ -35,6 +35,10 @@ struct Account: Identifiable, Equatable, Codable {
         displayAlias != nil
     }
 
+    var displayPlanName: String? {
+        PlanDisplayFormatter.badgeText(for: plan)
+    }
+
     var displayWorkspaceName: String {
         Account.normalizedAlias(workspaceAlias) ?? workspace
     }
@@ -381,5 +385,43 @@ struct PlanCycleFormatter {
 
     static func tooltip(for date: Date) -> String {
         "Plan renews \(ResetFormatter.fullTooltip(date: date))"
+    }
+}
+
+struct PlanDisplayFormatter {
+    static func badgeText(for raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = trimmed
+            .lowercased()
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+
+        guard !normalized.isEmpty, normalized != "?" else { return nil }
+
+        if normalized.contains("pro") && normalized.contains("lite") {
+            return "Pro Lite"
+        }
+        if normalized == "pro" || normalized.hasPrefix("pro ") || normalized.contains(" pro") {
+            return "Pro"
+        }
+        if normalized == "plus" || normalized.contains("plus") {
+            return "Plus"
+        }
+        if normalized == "free" {
+            return "Free"
+        }
+        if normalized == "team" || normalized.contains("team") {
+            return "Team"
+        }
+        if normalized == "enterprise" || normalized.contains("enterprise") {
+            return "Enterprise"
+        }
+
+        return trimmed
+            .split(separator: " ")
+            .map { word in
+                word.prefix(1).uppercased() + word.dropFirst().lowercased()
+            }
+            .joined(separator: " ")
     }
 }

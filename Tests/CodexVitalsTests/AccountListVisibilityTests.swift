@@ -65,6 +65,30 @@ final class AccountListVisibilityTests: XCTestCase {
         XCTAssertEqual(account.freePlanResetSeconds, 86_400)
     }
 
+    func testPlanDisplayNameNormalizesCommonPlans() {
+        XCTAssertEqual(PlanDisplayFormatter.badgeText(for: "pro"), "Pro")
+        XCTAssertEqual(PlanDisplayFormatter.badgeText(for: "plus"), "Plus")
+        XCTAssertEqual(PlanDisplayFormatter.badgeText(for: "pro_lite"), "Pro Lite")
+        XCTAssertEqual(PlanDisplayFormatter.badgeText(for: "pro-lite"), "Pro Lite")
+        XCTAssertEqual(PlanDisplayFormatter.badgeText(for: "free"), "Free")
+        XCTAssertNil(PlanDisplayFormatter.badgeText(for: "?"))
+    }
+
+    func testAccountDisplayPlanNameIsIndependentOfAlias() {
+        var account = makeAccount(
+            id: "person@example.com|acc",
+            email: "person@example.com",
+            plan: "plus",
+            sessionFree: 80,
+            weeklyFree: 80,
+            sessionResetSeconds: 0
+        )
+        account.alias = "Lab Member 01"
+
+        XCTAssertEqual(account.displayName, "Lab Member 01")
+        XCTAssertEqual(account.displayPlanName, "Plus")
+    }
+
     func testFreeResetFormatterIncludesReturnContext() {
         let text = ResetFormatter.formatFreeReturn(seconds: 60)
 

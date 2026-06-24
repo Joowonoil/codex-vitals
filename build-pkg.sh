@@ -44,20 +44,19 @@ xattr -cr "${STAGE}/${PRODUCT_NAME}.app" 2>/dev/null || true
 find "$STAGE" \( -name '.DS_Store' -o -name '._*' \) -delete
 
 echo "Building installer package..."
-SIGN_ARGS=()
+PKGBUILD_ARGS=(
+	--root "$STAGE"
+	--install-location /Applications
+	--identifier "$BUNDLE_ID"
+	--version "$PACKAGE_VERSION"
+	--filter '/\._[^/]*$'
+	--filter '/\.DS_Store$'
+)
 if [[ -n "$PKG_SIGN_IDENTITY" ]]; then
-	SIGN_ARGS=(--sign "$PKG_SIGN_IDENTITY" --timestamp)
+	PKGBUILD_ARGS+=(--sign "$PKG_SIGN_IDENTITY" --timestamp)
 fi
 
-COPYFILE_DISABLE=1 pkgbuild \
-	--root "$STAGE" \
-	--install-location /Applications \
-	--identifier "$BUNDLE_ID" \
-	--version "$PACKAGE_VERSION" \
-	--filter '/\._[^/]*$' \
-	--filter '/\.DS_Store$' \
-	"${SIGN_ARGS[@]}" \
-	"$PKG_OUT"
+COPYFILE_DISABLE=1 pkgbuild "${PKGBUILD_ARGS[@]}" "$PKG_OUT"
 
 echo "OK: $PKG_OUT"
 echo "   Install: sudo installer -pkg \"$PKG_OUT\" -target /"

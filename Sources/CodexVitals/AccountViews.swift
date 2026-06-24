@@ -370,11 +370,14 @@ struct AccountRow: View {
     private var accountIdentity: some View {
         if account.hasDisplayAlias {
             VStack(alignment: .leading, spacing: 0) {
-                Text(account.displayName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                HStack(spacing: 4) {
+                    PlanBadge(text: account.displayPlanName, compact: false)
+                    Text(account.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
                 Text(account.email)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -382,11 +385,14 @@ struct AccountRow: View {
                     .truncationMode(.middle)
             }
         } else {
-            Text(account.email)
-                .font(.system(size: 13))
-                .foregroundColor(.primary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            HStack(spacing: 5) {
+                Text(account.email)
+                    .font(.system(size: 13))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                PlanBadge(text: account.displayPlanName, compact: false)
+            }
         }
     }
 }
@@ -498,7 +504,10 @@ struct AccountCompactRow: View {
                 WorkspaceChip(ws: account.displayWorkspaceName, colorKey: account.workspace, compact: true)
                     .frame(width: layout.workspaceWidth, alignment: .leading)
 
-                if account.isFreeWaitingForReset {
+                if needsRelogin || isRelogging {
+                    accountActionControl(width: layout.actionWidth)
+                    reconnectStatus(width: freeResetWidth, alignment: .leading)
+                } else if account.isFreeWaitingForReset {
                     accountActionControl(width: layout.actionWidth)
                     freeResetStatus(width: freeResetWidth, alignment: .leading)
                 } else {
@@ -556,11 +565,14 @@ struct AccountCompactRow: View {
     private var accountIdentityView: some View {
         if account.hasDisplayAlias {
             VStack(alignment: .leading, spacing: 0) {
-                Text(account.displayName)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                HStack(spacing: 4) {
+                    PlanBadge(text: account.displayPlanName, compact: true)
+                    Text(account.displayName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
                 Text(account.email)
                     .font(.system(size: 8.5))
                     .foregroundColor(.secondary)
@@ -569,12 +581,15 @@ struct AccountCompactRow: View {
             }
             .help(account.email)
         } else {
-            Text(account.email)
-                .font(.system(size: 11))
-                .foregroundColor(.primary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .help(account.email)
+            HStack(spacing: 5) {
+                Text(account.email)
+                    .font(.system(size: 11))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                PlanBadge(text: account.displayPlanName, compact: true)
+            }
+            .help(account.email)
         }
     }
 
@@ -706,9 +721,6 @@ struct AccountCompactRow: View {
                 }
                 .buttonStyle(.plain)
                 .help("Cancel")
-            } else if needsRelogin {
-                ReloginAccountButton(action: relogin)
-                .disabled(isReloginBlocked)
             } else if isSwitchingToCodex {
                 ProgressView()
                     .controlSize(.mini)
@@ -785,6 +797,27 @@ struct PlanCycleBadge: View {
     }
 }
 
+struct PlanBadge: View {
+    let text: String?
+    var compact = false
+
+    var body: some View {
+        if let text {
+            Text(text)
+                .font(.system(size: compact ? 7.4 : 9, weight: .bold))
+                .foregroundStyle(Theme.workspaceTextColor(for: text))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .padding(.horizontal, compact ? 4 : 5)
+                .padding(.vertical, compact ? 1 : 1.5)
+                .background(Theme.workspaceColor(for: text))
+                .clipShape(Capsule())
+                .fixedSize(horizontal: true, vertical: false)
+                .help("Plan: \(text)")
+        }
+    }
+}
+
 struct ReloginAccountButton: View {
     let action: () -> Void
     @State private var hovered = false
@@ -851,6 +884,52 @@ struct CodexIconView: View {
 }
 
 private extension AccountCompactRow {
+    func reconnectStatus(width: CGFloat, alignment: Alignment) -> some View {
+        Group {
+            if isRelogging {
+                HStack(spacing: 5) {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .scaleEffect(0.62)
+                    Text("Reconnecting...")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 7)
+                .frame(height: 20)
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(Color.primary.opacity(0.13), lineWidth: 0.6)
+                }
+            } else {
+                Button(action: relogin) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 8.5, weight: .bold))
+                        Text("Reconnect")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundColor(Color(hex: "FF9F0A"))
+                    .padding(.horizontal, 8)
+                    .frame(height: 20)
+                    .background(Color(hex: "FF9F0A").opacity(0.11))
+                    .clipShape(Capsule())
+                    .overlay {
+                        Capsule()
+                            .stroke(Color(hex: "FF9F0A").opacity(0.24), lineWidth: 0.6)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isReloginBlocked)
+            }
+        }
+        .frame(width: width, alignment: alignment)
+        .help(isRelogging ? "Reconnecting account" : "Reconnect this account")
+    }
+
     func freeResetStatus(width: CGFloat, alignment: Alignment) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "clock")
