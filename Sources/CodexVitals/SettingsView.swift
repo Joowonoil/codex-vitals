@@ -78,6 +78,28 @@ struct SettingsView: View {
                     .padding(.leading, 14)
 
                 Button {
+                    open(AppInfo.repositoryURL)
+                } label: {
+                    HStack(spacing: 10) {
+                        Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                            .font(.system(size: 13, weight: .medium))
+                        Spacer(minLength: 0)
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 42)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Open Codex Vitals GitHub")
+
+                Divider()
+                    .opacity(0.12)
+                    .padding(.leading, 14)
+
+                Button {
                     open(AppInfo.feedbackURL)
                 } label: {
                     HStack(spacing: 10) {

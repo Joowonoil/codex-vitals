@@ -3,6 +3,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS%2013+-000000?logo=apple" alt="macOS 13+">
   <img src="https://img.shields.io/badge/swift-5.9-F05138?logo=swift" alt="Swift 5.9">
+  <a href="https://github.com/Joowonoil/codex-vitals/releases">
+    <img src="https://img.shields.io/github/downloads/Joowonoil/codex-vitals/total?label=downloads&logo=github" alt="GitHub release downloads">
+  </a>
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT">
 </p>
 
