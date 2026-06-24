@@ -13,6 +13,10 @@
   An unofficial, local-first macOS menu bar app for OpenAI Codex usage, reset windows, account aliases, and workspace visibility.
 </p>
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="Codex Vitals menu bar usage dashboard with sanitized sample accounts" width="900">
+</p>
+
 ## Overview
 
 **Codex Vitals** helps you monitor OpenAI Codex usage, reset windows, account state, and workspaces directly from your Mac menu bar.
