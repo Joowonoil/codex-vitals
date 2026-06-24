@@ -3,12 +3,10 @@ import Foundation
 enum AppStorage {
     private static let fileManager = FileManager.default
     private static let supportDirectoryName = "CodexVitals"
-    private static let legacySupportDirectoryName = "CodexSwitchboard"
 
     static var rootURL: URL {
         let baseURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let url = baseURL.appendingPathComponent(supportDirectoryName, isDirectory: true)
-        migrateLegacySupportDirectoryIfNeeded(to: url, legacyURL: baseURL.appendingPathComponent(legacySupportDirectoryName, isDirectory: true))
         try? ensureDirectory(url, permissions: 0o700)
         return url
     }
@@ -61,34 +59,6 @@ enum AppStorage {
     static func readJSON(_ url: URL) -> [String: Any]? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-    }
-
-    private static func migrateLegacySupportDirectoryIfNeeded(to currentURL: URL, legacyURL: URL) {
-        guard fileManager.fileExists(atPath: legacyURL.path) else { return }
-
-        if !fileManager.fileExists(atPath: currentURL.path) {
-            try? fileManager.copyItem(at: legacyURL, to: currentURL)
-            try? ensureDirectory(currentURL, permissions: 0o700)
-            return
-        }
-
-        let migratedItems = [
-            "accounts.json",
-            "accounts-snapshot.json",
-            "team-name-cache.json",
-            "profiles",
-            "backups"
-        ]
-
-        for item in migratedItems {
-            let sourceURL = legacyURL.appendingPathComponent(item)
-            let destinationURL = currentURL.appendingPathComponent(item)
-            guard fileManager.fileExists(atPath: sourceURL.path),
-                  !fileManager.fileExists(atPath: destinationURL.path) else {
-                continue
-            }
-            try? fileManager.copyItem(at: sourceURL, to: destinationURL)
-        }
     }
 }
 

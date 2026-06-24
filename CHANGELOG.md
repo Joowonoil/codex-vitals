@@ -2,12 +2,14 @@
 
 All notable changes to Codex Vitals will be documented here.
 
-## 1.0 - 2026-06-23
+## 1 - 2026-06-24
 
 - Rebranded the app as Codex Vitals.
 - Added a pulse/gauge app icon and Vitals-oriented menu bar symbol.
-- Migrated legacy local app support data into the new Codex Vitals app support folder on first launch.
 - Added local display aliases for saved accounts.
+- Added plan badges next to account aliases.
+- Added a visible reconnect action for accounts that need authentication again.
+- Added a sanitized product screenshot to the GitHub README and product website.
 - Added an in-popover settings panel for Launch at Login.
 - Moved settings and quit controls into the top toolbar and simplified the footer.
 - Added manual account reordering from each account row context menu.
