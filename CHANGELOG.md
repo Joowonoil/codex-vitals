@@ -2,7 +2,7 @@
 
 All notable changes to Codex Vitals will be documented here.
 
-## 1 - 2026-06-24
+## 1.1 - 2026-06-24
 
 - Rebranded the app as Codex Vitals.
 - Added a pulse/gauge app icon and Vitals-oriented menu bar symbol.
