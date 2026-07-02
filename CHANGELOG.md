@@ -2,6 +2,14 @@
 
 All notable changes to Codex Vitals will be documented here.
 
+## 1.2 - 2026-07-02
+
+- Added an Auto Refresh setting with Off, 5 min, 10 min, 15 min, and 30 min options.
+- Changed the default automatic usage refresh interval to 10 minutes.
+- Cached account metadata for 6 hours during automatic refreshes while keeping manual refresh fully fresh.
+- Limited concurrent usage and metadata API requests to 4 at a time to reduce network spikes.
+- Reduced the passive auth mirror fallback poll from 3 seconds to 30 seconds while keeping file-event syncing active.
+
 ## 1.1 - 2026-06-24
 
 - Rebranded the app as Codex Vitals.

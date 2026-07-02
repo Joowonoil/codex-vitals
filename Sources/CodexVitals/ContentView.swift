@@ -23,7 +23,7 @@ struct ContentView: View {
             thinDivider
 
             if isShowingSettings {
-                SettingsView()
+                SettingsView(viewModel: viewModel)
                     .frame(maxWidth: .infinity, maxHeight: Self.listMaxHeight())
             } else {
                 if viewModel.isLoading && viewModel.accounts.isEmpty {
@@ -65,7 +65,7 @@ struct ContentView: View {
             Group {
                 Button("") { isShowingSettings.toggle() }.keyboardShortcut(",", modifiers: .command)
                 Button("") { viewModel.toggleGroupByWorkspace() }.keyboardShortcut("g", modifiers: [.command, .shift])
-                Button("") { viewModel.refresh() }.keyboardShortcut("r", modifiers: .command)
+                Button("") { viewModel.refresh(forceMetadataRefresh: true) }.keyboardShortcut("r", modifiers: .command)
                 Button("") { NSApp.terminate(nil) }.keyboardShortcut("q", modifiers: .command)
             }.opacity(0)
         )
@@ -299,7 +299,7 @@ struct HeaderView: View {
         manualRefreshPending = true
         showsRefreshSuccess = false
         refreshSuccessTask?.cancel()
-        vm.refresh()
+        vm.refresh(forceMetadataRefresh: true)
     }
 
     private func handleLoadingChange(_ isLoading: Bool) {

@@ -74,6 +74,27 @@ final class AccountListVisibilityTests: XCTestCase {
         XCTAssertNil(PlanDisplayFormatter.badgeText(for: "?"))
     }
 
+    func testAutoRefreshIntervalOptionsUseExpectedDefaults() {
+        let previousValue = UserDefaults.standard.object(forKey: AutoRefreshInterval.userDefaultsKey)
+        defer {
+            if let previousValue {
+                UserDefaults.standard.set(previousValue, forKey: AutoRefreshInterval.userDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: AutoRefreshInterval.userDefaultsKey)
+            }
+        }
+
+        UserDefaults.standard.removeObject(forKey: AutoRefreshInterval.userDefaultsKey)
+
+        XCTAssertEqual(AutoRefreshInterval.stored, .tenMinutes)
+        XCTAssertNil(AutoRefreshInterval.off.seconds)
+        XCTAssertEqual(AutoRefreshInterval.fiveMinutes.seconds, 300)
+        XCTAssertEqual(AutoRefreshInterval.tenMinutes.displayName, "10 min")
+
+        AutoRefreshInterval.thirtyMinutes.save()
+        XCTAssertEqual(AutoRefreshInterval.stored, .thirtyMinutes)
+    }
+
     func testAccountDisplayPlanNameIsIndependentOfAlias() {
         var account = makeAccount(
             id: "person@example.com|acc",

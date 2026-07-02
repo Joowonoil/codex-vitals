@@ -6,6 +6,9 @@ final class UsageService: Sendable {
     private let ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                    + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     private let refreshedAccessTokenKey = "__codex_switchboard_access_token"
+    private let metadataCache = AccountMetadataCache()
+    private static let maxConcurrentRequests = 4
+    private static let metadataCacheTTL: TimeInterval = 6 * 60 * 60
     private static let refreshFailedError = "Refresh failed - re-login required"
 
     private struct AccountMetadata: Sendable {
@@ -13,29 +16,37 @@ final class UsageService: Sendable {
         let planRenewalDate: Date?
     }
 
+    private actor AccountMetadataCache {
+        private struct Entry {
+            let value: [String: AccountMetadata]
+            let fetchedAt: Date
+        }
+
+        private var entries: [String: Entry] = [:]
+
+        func value(for token: String, now: Date, ttl: TimeInterval) -> [String: AccountMetadata]? {
+            guard let entry = entries[token],
+                  now.timeIntervalSince(entry.fetchedAt) < ttl else {
+                entries[token] = nil
+                return nil
+            }
+            return entry.value
+        }
+
+        func store(_ value: [String: AccountMetadata], for token: String, fetchedAt: Date) {
+            entries[token] = Entry(value: value, fetchedAt: fetchedAt)
+        }
+    }
+
     // MARK: - Public
 
-    func loadAll() async -> [Account] {
+    func loadAll(forceMetadataRefresh: Bool = false) async -> [Account] {
         let collection = AccountProfileStore.load()
         let profiles = collection.profiles
         let validKeys = collection.orderedKeys.filter { profiles[$0] != nil }
         let workspaceAliases = collection.workspaceAliases
 
-        // Fetch usage concurrently
-        let usages: [String: [String: Any]] = await withTaskGroup(
-            of: (String, [String: Any]).self
-        ) { group in
-            for key in validKeys {
-                if let profile = profiles[key],
-                   let tok = profile["access"] as? String,
-                   !tok.isEmpty {
-                    group.addTask { (key, await self.fetchUsage(profileKey: key, profile: profile)) }
-                }
-            }
-            var map: [String: [String: Any]] = [:]
-            for await (k, v) in group { map[k] = v }
-            return map
-        }
+        let usages = await fetchUsages(validKeys: validKeys, profiles: profiles)
 
         var teamNames = TeamNameCacheStore.load()
         let workspaceNamedAccountIDs = workspaceNamedAccountIDs(
@@ -48,7 +59,10 @@ final class UsageService: Sendable {
             profiles: profiles,
             usages: usages
         )
-        let tokenAccountMetadata = await fetchAccountMetadata(for: metadataTokens)
+        let tokenAccountMetadata = await fetchAccountMetadata(
+            for: metadataTokens,
+            forceRefresh: forceMetadataRefresh
+        )
         let accountMetadataByID = mergedAccountMetadata(from: tokenAccountMetadata)
 
         if !tokenAccountMetadata.isEmpty {
@@ -170,6 +184,48 @@ final class UsageService: Sendable {
         return usage(await fetchUsage(token: accessToken), accessToken: accessToken)
     }
 
+    private func fetchUsages(
+        validKeys: [String],
+        profiles: [String: [String: Any]]
+    ) async -> [String: [String: Any]] {
+        let jobs: [(String, [String: Any])] = validKeys.compactMap { key in
+            guard let profile = profiles[key],
+                  let token = profile["access"] as? String,
+                  !token.isEmpty else {
+                return nil
+            }
+            return (key, profile)
+        }
+
+        guard !jobs.isEmpty else { return [:] }
+
+        return await withTaskGroup(of: (String, [String: Any]).self) { group in
+            var iterator = jobs.makeIterator()
+            var activeCount = 0
+            var result: [String: [String: Any]] = [:]
+
+            func scheduleNext() {
+                guard let job = iterator.next() else { return }
+                activeCount += 1
+                group.addTask { [self] in
+                    (job.0, await fetchUsage(profileKey: job.0, profile: job.1))
+                }
+            }
+
+            for _ in 0..<min(Self.maxConcurrentRequests, jobs.count) {
+                scheduleNext()
+            }
+
+            while activeCount > 0, let (key, usage) = await group.next() {
+                activeCount -= 1
+                result[key] = usage
+                scheduleNext()
+            }
+
+            return result
+        }
+    }
+
     private func fetchAccountMetadata(token: String) async -> [String: AccountMetadata] {
         let data = await apiGet("/backend-api/accounts/check/v4-2023-04-27", token: token, timeout: 4)
         var result: [String: AccountMetadata] = [:]
@@ -186,18 +242,65 @@ final class UsageService: Sendable {
         return result
     }
 
-    private func fetchAccountMetadata(for tokens: Set<String>) async -> [String: [String: AccountMetadata]] {
+    private func fetchAccountMetadata(
+        for tokens: Set<String>,
+        forceRefresh: Bool
+    ) async -> [String: [String: AccountMetadata]] {
         guard !tokens.isEmpty else { return [:] }
 
-        return await withTaskGroup(of: (String, [String: AccountMetadata]).self) { group in
-            for token in tokens {
-                group.addTask { (token, await self.fetchAccountMetadata(token: token)) }
+        var cachedResults: [String: [String: AccountMetadata]] = [:]
+        var tokensToFetch: [String] = []
+        let now = Date()
+
+        for token in tokens {
+            if !forceRefresh,
+               let cached = await metadataCache.value(
+                for: token,
+                now: now,
+                ttl: Self.metadataCacheTTL
+               ) {
+                cachedResults[token] = cached
+            } else {
+                tokensToFetch.append(token)
+            }
+        }
+
+        guard !tokensToFetch.isEmpty else { return cachedResults }
+
+        let fetchedResults = await fetchUncachedAccountMetadata(for: tokensToFetch)
+        for (token, metadata) in fetchedResults where !metadata.isEmpty {
+            await metadataCache.store(metadata, for: token, fetchedAt: Date())
+        }
+
+        return cachedResults.merging(fetchedResults) { _, fresh in fresh }
+    }
+
+    private func fetchUncachedAccountMetadata(
+        for tokens: [String]
+    ) async -> [String: [String: AccountMetadata]] {
+        await withTaskGroup(of: (String, [String: AccountMetadata]).self) { group in
+            var iterator = tokens.makeIterator()
+            var activeCount = 0
+            var result: [String: [String: AccountMetadata]] = [:]
+
+            func scheduleNext() {
+                guard let token = iterator.next() else { return }
+                activeCount += 1
+                group.addTask { [self] in
+                    (token, await fetchAccountMetadata(token: token))
+                }
             }
 
-            var result: [String: [String: AccountMetadata]] = [:]
-            for await (token, names) in group {
-                result[token] = names
+            for _ in 0..<min(Self.maxConcurrentRequests, tokens.count) {
+                scheduleNext()
             }
+
+            while activeCount > 0, let (token, names) = await group.next() {
+                activeCount -= 1
+                result[token] = names
+                scheduleNext()
+            }
+
             return result
         }
     }

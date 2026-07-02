@@ -133,6 +133,48 @@ enum ListDensity: String {
     case compact
 }
 
+enum AutoRefreshInterval: Int, CaseIterable, Identifiable {
+    case off = 0
+    case fiveMinutes = 300
+    case tenMinutes = 600
+    case fifteenMinutes = 900
+    case thirtyMinutes = 1800
+
+    static let userDefaultsKey = "autoRefreshIntervalSeconds"
+
+    var id: Int { rawValue }
+
+    var seconds: TimeInterval? {
+        rawValue > 0 ? TimeInterval(rawValue) : nil
+    }
+
+    var displayName: String {
+        switch self {
+        case .off:
+            return "Off"
+        case .fiveMinutes:
+            return "5 min"
+        case .tenMinutes:
+            return "10 min"
+        case .fifteenMinutes:
+            return "15 min"
+        case .thirtyMinutes:
+            return "30 min"
+        }
+    }
+
+    static var stored: AutoRefreshInterval {
+        guard UserDefaults.standard.object(forKey: userDefaultsKey) != nil else {
+            return .tenMinutes
+        }
+        return AutoRefreshInterval(rawValue: UserDefaults.standard.integer(forKey: userDefaultsKey)) ?? .tenMinutes
+    }
+
+    func save() {
+        UserDefaults.standard.set(rawValue, forKey: Self.userDefaultsKey)
+    }
+}
+
 extension String {
     fileprivate var codexVitalsNormalized: String {
         trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

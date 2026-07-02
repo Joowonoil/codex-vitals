@@ -28,6 +28,7 @@
 - Instantly see which account is active
 - Switch active accounts with one click
 - Enable Launch at Login from the settings panel
+- Tune automatic refresh cadence from the settings panel
 - Identify invalid or deactivated accounts
 
 > **Disclaimer:** Codex Vitals is not affiliated with OpenAI. It does not change Codex/OpenAI limits, share accounts, or automate account cycling. It only helps you view local usage state and manually switch between accounts you control.
@@ -42,7 +43,8 @@
 - **Passive Auth Mirroring** — Codex-managed token rotations are mirrored back into saved local profiles
 - **Local-First** — All data stays on your machine; no cloud sync
 - **Secure Token Storage** — Sensitive files written with `0600` permissions
-- **Settings Panel** — Manage Launch at Login inside the menu bar popover
+- **Settings Panel** — Manage Launch at Login and Auto Refresh inside the menu bar popover
+- **Network-Friendly Refresh** — Automatic updates default to 10 minutes, metadata is cached, and account requests are throttled
 - **Smart Ordering** — Accounts are implicitly ranked by a composite score so the "best account to use now" surfaces to the top
 
 ## Smart Ordering
@@ -114,6 +116,8 @@ The app uses your local Codex/OpenAI auth tokens to query:
 - `https://auth.openai.com/oauth/token`
 
 These are not official public APIs and may change without notice.
+
+Automatic usage refresh defaults to 10 minutes. Account metadata is cached for 6 hours during automatic refreshes, while manual refresh always requests fresh usage and metadata.
 
 ### Security
 

@@ -36,7 +36,7 @@ final class CodexAuthMirrorService: @unchecked Sendable {
         authURL: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".codex/auth.json"),
         profileStoreURL: URL = AppStorage.profilesURL,
-        interval: TimeInterval = 3
+        interval: TimeInterval = 30
     ) {
         self.fileManager = fileManager
         self.authURL = authURL

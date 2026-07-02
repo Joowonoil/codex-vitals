@@ -3,6 +3,7 @@ import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject var viewModel: UsageViewModel
     @StateObject private var launchAtLogin = LaunchAtLoginModel()
     private let contentWidth: CGFloat = 360
 
@@ -32,6 +33,27 @@ struct SettingsView: View {
                     )) {
                         Label("Launch at Login", systemImage: "poweron")
                     }
+                }
+
+                Divider()
+                    .opacity(0.12)
+                    .padding(.leading, 14)
+
+                settingsRow {
+                    HStack(spacing: 10) {
+                        Label("Auto Refresh", systemImage: "clock.arrow.circlepath")
+                        Spacer(minLength: 8)
+                        Picker("", selection: $viewModel.autoRefreshInterval) {
+                            ForEach(AutoRefreshInterval.allCases) { interval in
+                                Text(interval.displayName).tag(interval)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .controlSize(.small)
+                        .frame(width: 92)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
             }
             .background(.regularMaterial)

@@ -32,6 +32,13 @@ final class UsageViewModel: ObservableObject {
     @Published var listDensity: ListDensity = .compact {
         didSet { UserDefaults.standard.set(listDensity.rawValue, forKey: "listDensity") }
     }
+    @Published var autoRefreshInterval: AutoRefreshInterval = .stored {
+        didSet {
+            guard oldValue != autoRefreshInterval else { return }
+            autoRefreshInterval.save()
+            restartRefreshTimer()
+        }
+    }
     @Published var waitingForResetCollapsed = false
     @Published var freeWaitingCollapsed = true
     @Published private var usesManualAccountOrder = false
@@ -47,6 +54,7 @@ final class UsageViewModel: ObservableObject {
     private var switchTask: Task<Void, Never>?
     private var pendingDebouncedRefreshTask: Task<Void, Never>?
     private var pendingRefreshAfterCurrent = false
+    private var pendingForceMetadataRefreshAfterCurrent = false
     private let manualAccountOrderKey = "manualAccountOrderingEnabled"
 
     // MARK: - Init
@@ -234,26 +242,27 @@ final class UsageViewModel: ObservableObject {
 
     // MARK: - Actions
 
-    func refresh() {
+    func refresh(forceMetadataRefresh: Bool = false) {
         pendingDebouncedRefreshTask?.cancel()
         pendingDebouncedRefreshTask = nil
 
         guard !isLoading else {
             pendingRefreshAfterCurrent = true
+            pendingForceMetadataRefreshAfterCurrent = pendingForceMetadataRefreshAfterCurrent || forceMetadataRefresh
             return
         }
 
-        runRefresh()
+        runRefresh(forceMetadataRefresh: forceMetadataRefresh)
     }
 
-    private func runRefresh() {
+    private func runRefresh(forceMetadataRefresh: Bool) {
         isLoading = true
         error = nil
         codexLoginStatus = CodexLoginStatusStore.load()
         refreshCodexAvailability()
 
         Task {
-            let result = await service.loadAll()
+            let result = await service.loadAll(forceMetadataRefresh: forceMetadataRefresh)
             accounts = result
             let now = Date()
             lastRefresh = now
@@ -261,10 +270,12 @@ final class UsageViewModel: ObservableObject {
             codexLoginStatus = CodexLoginStatusStore.load()
             refreshCodexAvailability()
             isLoading = false
-            startTimer()
+            restartRefreshTimer()
             if pendingRefreshAfterCurrent {
+                let shouldForceMetadata = pendingForceMetadataRefreshAfterCurrent
                 pendingRefreshAfterCurrent = false
-                refresh()
+                pendingForceMetadataRefreshAfterCurrent = false
+                refresh(forceMetadataRefresh: shouldForceMetadata)
             }
         }
     }
@@ -279,7 +290,7 @@ final class UsageViewModel: ObservableObject {
             }
             guard let self, !Task.isCancelled else { return }
             self.pendingDebouncedRefreshTask = nil
-            self.refresh()
+            self.refresh(forceMetadataRefresh: true)
         }
     }
 
@@ -555,9 +566,11 @@ final class UsageViewModel: ObservableObject {
         activeCodexProfileKey = isCodexInstalled ? switchService.currentSourceProfileKey() : nil
     }
 
-    private func startTimer() {
+    private func restartRefreshTimer() {
         refreshTimer?.invalidate()
-        let t = Timer(timeInterval: 300, repeats: true) { [weak self] _ in
+        refreshTimer = nil
+        guard !isLoading, let interval = autoRefreshInterval.seconds else { return }
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
         RunLoop.main.add(t, forMode: .common)
