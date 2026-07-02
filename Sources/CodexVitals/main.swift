@@ -8,7 +8,7 @@ private let statusBarSymbolNames = [
 ]
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private let viewModel = UsageViewModel()
@@ -60,6 +60,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         popover.behavior = .transient
         popover.animates = false
         popover.contentViewController = controller
+        popover.delegate = self
     }
 
     private func syncPopoverSizeToSelectedMode() {
@@ -74,8 +75,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func togglePopover(_ sender: Any?) {
         guard let button = statusItem.button else { return }
         if popover.isShown {
-            popover.performClose(sender)
-            removeEventMonitor()
+            closePopover(sender)
         } else {
             syncPopoverSizeToSelectedMode()
             NSApp.activate(ignoringOtherApps: true)
@@ -84,10 +84,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             eventMonitor = NSEvent.addGlobalMonitorForEvents(
                 matching: [.leftMouseDown, .rightMouseDown]
             ) { [weak self] _ in
-                self?.popover.performClose(nil)
-                self?.removeEventMonitor()
+                Task { @MainActor in
+                    guard let self else { return }
+                    guard !self.isMouseInStatusButton() else { return }
+                    self.closePopover(nil)
+                }
             }
         }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        removeEventMonitor()
+    }
+
+    private func closePopover(_ sender: Any?) {
+        popover.performClose(sender)
+        removeEventMonitor()
+    }
+
+    private func isMouseInStatusButton() -> Bool {
+        guard let button = statusItem.button,
+              let window = button.window else {
+            return false
+        }
+
+        let buttonRectInWindow = button.convert(button.bounds, to: nil)
+        let buttonRectInScreen = window.convertToScreen(buttonRectInWindow)
+        return buttonRectInScreen.insetBy(dx: -4, dy: -4).contains(NSEvent.mouseLocation)
     }
 
     private func removeEventMonitor() {
