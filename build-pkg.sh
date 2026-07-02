@@ -11,7 +11,7 @@
 #
 # Usage:
 #   ./build-pkg.sh
-#   VERSION=1.2 ./build-pkg.sh
+#   VERSION=1.2.1 ./build-pkg.sh
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -20,7 +20,7 @@ cd "$ROOT"
 PRODUCT_NAME="${PRODUCT_NAME:-CodexVitals}"
 BUNDLE_ID="${BUNDLE_ID:-app.codexvitals.menubar}"
 PKG_NAME="${PKG_NAME:-CodexVitals}"
-VERSION="${VERSION:-1.2}"
+VERSION="${VERSION:-1.2.1}"
 PACKAGE_VERSION="${PACKAGE_VERSION:-${VERSION%%-*}}"
 PKG_SIGN_IDENTITY="${PKG_SIGN_IDENTITY:-}"
 

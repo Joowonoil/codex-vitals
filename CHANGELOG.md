@@ -2,6 +2,10 @@
 
 All notable changes to Codex Vitals will be documented here.
 
+## 1.2.1 - 2026-07-03
+
+- Fixed the menu bar popover toggle so clicking the status bar icon again closes the popover instead of closing and immediately reopening it.
+
 ## 1.2 - 2026-07-02
 
 - Added an Auto Refresh setting with Off, 5 min, 10 min, 15 min, and 30 min options.
