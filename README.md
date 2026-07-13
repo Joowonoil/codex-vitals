@@ -49,15 +49,16 @@
 - **Network-Friendly Refresh** — Automatic usage refresh defaults to 10 minutes, metadata is cached, and account requests are throttled
 - **Smart Ordering** — Accounts are implicitly ranked by a composite score so the "best account to use now" surfaces to the top
 
-## Account Switching and Session Continuity
+## Check, Switch, and Continue
 
-Codex Vitals switches the shared local Codex credential rather than maintaining separate sign-ins for each interface.
+Codex Vitals is designed for using several accounts in rotation without losing track of your work:
 
-- **Terminal and ChatGPT stay aligned** — Selecting an account updates `~/.codex/auth.json`, which is used by new Codex CLI runs and by Codex inside the official ChatGPT macOS app.
-- **Safe handoff** — To avoid auth and database conflicts, Codex Vitals closes active Codex processes, backs up the current auth file, applies the selected profile, and relaunches the macOS app. A running CLI session may therefore close during a switch.
-- **Local sessions remain available** — Codex session history stays in the local Codex data directory. After switching accounts, use `/resume` or `codex resume` to reopen earlier work.
-- **The selected account handles new requests** — Resuming preserves the local conversation and workspace context, but subsequent requests use the currently active account's limits and permissions.
-- **Switching is always manual** — Codex Vitals never rotates accounts in the background; a switch occurs only after you explicitly choose an account.
+1. **Check remaining usage** — Compare the quota left on every saved account and find one with capacity.
+2. **Press the switch button** — Choose that account directly from the menu bar list.
+3. **Use it in Terminal and ChatGPT** — The selected account becomes active for new Codex CLI runs and for Codex inside the official ChatGPT macOS app.
+4. **Continue the same conversation** — Session history is stored locally, so `/resume` or `codex resume` can reopen earlier work even after the account changes.
+
+The conversation and workspace context remain available, while new requests use the switched account's limits and permissions. Switching is always manual. To protect the shared local auth file, Codex Vitals safely closes active Codex processes, creates a backup, applies the selected profile, and relaunches the macOS app; a running CLI session may therefore close during the handoff.
 
 ## Smart Ordering
 
@@ -163,11 +164,11 @@ No. Codex Vitals does not automate account cycling. It only changes the active l
 
 ### Does account switching work in both Terminal and ChatGPT for macOS?
 
-Yes. Codex Vitals updates the shared local Codex credential used by new Codex CLI runs and by Codex inside the official ChatGPT macOS app.
+Yes. Check which account still has capacity, press its switch button, and Codex Vitals applies it to new Codex CLI runs and to Codex inside the official ChatGPT macOS app.
 
 ### Will switching accounts remove my Codex sessions?
 
-No. Session history remains stored locally, so earlier work can be reopened with `/resume` or `codex resume`. Continued requests run under the account that is active when the session is resumed.
+No. Session history remains stored locally, so earlier conversations can be reopened with `/resume` or `codex resume` after switching. The conversation continues, while new requests run under the account that is active when the session is resumed.
 
 ### Does it upload tokens or account data?
 
