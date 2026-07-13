@@ -29,6 +29,7 @@
 - Switch active accounts with one click
 - Enable Launch at Login from the settings panel
 - Tune automatic refresh cadence from the settings panel
+- Check for signed app updates and enable automatic installation
 - Identify invalid or deactivated accounts
 
 > **Disclaimer:** Codex Vitals is not affiliated with OpenAI. It does not change Codex/OpenAI limits, share accounts, or automate account cycling. It only helps you view local usage state and manually switch between accounts you control.
@@ -43,15 +44,16 @@
 - **Passive Auth Mirroring** — Codex-managed token rotations are mirrored back into saved local profiles
 - **Local-First** — All data stays on your machine; no cloud sync
 - **Secure Token Storage** — Sensitive files written with `0600` permissions
-- **Settings Panel** — Manage Launch at Login and Auto Refresh inside the menu bar popover
-- **Network-Friendly Refresh** — Automatic updates default to 10 minutes, metadata is cached, and account requests are throttled
+- **Settings Panel** — Manage Launch at Login, usage refresh, and application updates inside the menu bar popover
+- **Signed Automatic Updates** — Sparkle checks every 24 hours and verifies update archives with EdDSA before installation
+- **Network-Friendly Refresh** — Automatic usage refresh defaults to 10 minutes, metadata is cached, and account requests are throttled
 - **Smart Ordering** — Accounts are implicitly ranked by a composite score so the "best account to use now" surfaces to the top
 
 ## Smart Ordering
 
 Codex Vitals automatically re-orders your accounts so the best one to use right now appears first.
 
-- **Smart score** — `min(sessionFree, weeklyFree)`; the account with the highest bottlenecked balance wins.
+- **Smart score** — Uses the lowest remaining balance among the quota windows currently reported by OpenAI; the account with the highest bottlenecked balance wins.
 - **Priority strip** — Accounts with useful balance whose weekly window resets in less than 24 hours get a temporary urgency boost and appear in a dedicated top section.
 - **Exhausted accounts** — Sorted by who resets first, so you know which one will be usable again soonest.
 - **Free reset group** — Free-plan accounts waiting for session reset are grouped separately so daily-use paid/workspace accounts stay easier to scan.
@@ -89,6 +91,12 @@ To generate a `.pkg` installer from the built app:
 
 The installer will be created at `dist/CodexVitals-<version>.pkg`.
 
+Sparkle release feeds are generated after a signed and notarized DMG is ready:
+
+```bash
+scripts/prepare-sparkle-update.sh <version> dist/CodexVitals-<version>.dmg [release-notes.md]
+```
+
 ## Data & Privacy
 
 Codex Vitals is local-first and never syncs tokens or exposes a remote service.
@@ -114,10 +122,14 @@ The app uses your local Codex/OpenAI auth tokens to query:
 - `https://chatgpt.com/backend-api/accounts/check/v4-2023-04-27`
 - `https://auth.openai.com/oauth/authorize`
 - `https://auth.openai.com/oauth/token`
+- `https://ramterstudio.com/codex-vitals/appcast.xml` for application update metadata
+- GitHub Releases for signed application update downloads
 
 These are not official public APIs and may change without notice.
 
 Automatic usage refresh defaults to 10 minutes. Account metadata is cached for 6 hours during automatic refreshes, while manual refresh always requests fresh usage and metadata.
+
+Application update checks are separate from account refreshes. Sparkle checks at most once every 24 hours by default, and both automatic checks and automatic installation can be changed in Settings.
 
 ### Security
 
@@ -152,3 +164,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## License
 
 [MIT](LICENSE)
+
+The distributed app includes Sparkle under its bundled license notice.

@@ -221,7 +221,7 @@ struct PrioritySeparatorHeader: View {
         HStack(spacing: 6) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(Color(hex: "FF9F0A"))
+                .foregroundColor(Theme.warningText)
             Text("PRIORITY (\(count))")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.secondary)
@@ -306,6 +306,7 @@ struct AccountRow: View {
     private var exhausted: Bool { account.isWeeklyExhausted }
 
     var body: some View {
+        let windows = account.usageWindows.filter { !exhausted || $0.kind == .weekly }
         VStack(spacing: 4) {
             HStack(spacing: 6) {
                 Circle()
@@ -317,27 +318,23 @@ struct AccountRow: View {
             }
             .opacity(exhausted ? 0.5 : 1)
 
-            if !exhausted {
+            ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
                 BarRow(
-                    label: "5h",
-                    pct: account.sessionFree,
-                    resetSeconds: account.sessionResetSeconds,
-                    style: .normal,
-                    urgentReset: false
+                    label: window.label,
+                    pct: window.remainingPercent,
+                    resetSeconds: window.resetAfterSeconds,
+                    style: window.kind == .weekly && exhausted ? .weeklyExhausted : .normal,
+                    urgentReset: window.kind == .weekly && account.isWeeklyResetUrgent
                 )
             }
-
-            BarRow(
-                label: "1w",
-                pct: account.weeklyFree,
-                resetSeconds: account.weeklyResetSeconds,
-                style: exhausted ? .weeklyExhausted : .normal,
-                urgentReset: account.isWeeklyResetUrgent
-            )
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, exhausted ? 6 : 8)
-        .frame(maxWidth: .infinity, minHeight: exhausted ? 38 : 56, alignment: .leading)
+        .padding(.vertical, windows.count > 1 ? 8 : 6)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: 38 + CGFloat(max(0, windows.count - 1)) * 18,
+            alignment: .leading
+        )
         .background(hovered ? Color.primary.opacity(0.06) : .clear)
         .onHover { hovered = $0 }
         .contextMenu {
@@ -411,6 +408,7 @@ private enum CompactRowLayout {
         let metricWidth: CGFloat
         let sessionResetWidth: CGFloat
         let weeklyResetWidth: CGFloat
+        let quotaAreaWidth: CGFloat
         let planCycleWidth: CGFloat
         let actionWidth: CGFloat
     }
@@ -419,18 +417,20 @@ private enum CompactRowLayout {
         let spacing: CGFloat = 3
         let contentWidth = max(0, totalWidth - horizontalPadding * 2)
         let workspaceWidth: CGFloat = 58
-        let metricWidth: CGFloat = 76
+        let metricWidth: CGFloat = 84
         let sessionResetWidth: CGFloat = 42
         let weeklyResetWidth: CGFloat = 56
         let planCycleWidth: CGFloat = 34
+        let quotaAreaWidth = metricWidth * 2
+            + weeklyResetWidth * 2
+            + spacing
+            + 4
         let fixedWidth = 16
             + workspaceWidth
             + actionWidth
-            + metricWidth * 2
-            + sessionResetWidth
-            + weeklyResetWidth
+            + quotaAreaWidth
             + planCycleWidth
-            + spacing * 6
+            + spacing * 5
 
         return Metrics(
             spacing: spacing,
@@ -439,6 +439,7 @@ private enum CompactRowLayout {
             metricWidth: metricWidth,
             sessionResetWidth: sessionResetWidth,
             weeklyResetWidth: weeklyResetWidth,
+            quotaAreaWidth: quotaAreaWidth,
             planCycleWidth: planCycleWidth,
             actionWidth: actionWidth
         )
@@ -466,6 +467,7 @@ struct AccountCompactRow: View {
     let moveUp: () -> Void
     let moveDown: () -> Void
     @State private var hovered = false
+    @State private var isShowingRemovalConfirmation = false
 
     private var exhausted: Bool { account.isWeeklyExhausted }
     private var rowHeight: CGFloat {
@@ -481,7 +483,7 @@ struct AccountCompactRow: View {
 
     private var rowBackgroundColor: Color {
         if isActiveInCodex {
-            return Color(hex: "30D158").opacity(hovered ? 0.08 : 0.045)
+            return Theme.healthyAccent.opacity(hovered ? 0.08 : 0.045)
         }
         return hovered ? Color.primary.opacity(0.06) : .clear
     }
@@ -489,12 +491,9 @@ struct AccountCompactRow: View {
     var body: some View {
         GeometryReader { proxy in
             let layout = CompactRowLayout.metrics(totalWidth: proxy.size.width)
-            let freeResetWidth = layout.metricWidth * 2
-                + layout.sessionResetWidth
-                + layout.weeklyResetWidth
+            let freeResetWidth = layout.quotaAreaWidth
                 + layout.planCycleWidth
-                + layout.spacing * 2
-                + 4
+                + layout.spacing
             HStack(alignment: .center, spacing: layout.spacing) {
                 leadingAccountControl
 
@@ -513,8 +512,7 @@ struct AccountCompactRow: View {
                 } else {
                     accountActionControl(width: layout.actionWidth)
 
-                    sessionMetricGroup(layout: layout)
-                    weeklyMetricGroup(layout: layout)
+                    quotaMetrics(layout: layout)
                     planCycleText(width: layout.planCycleWidth)
                 }
             }
@@ -528,7 +526,7 @@ struct AccountCompactRow: View {
         .overlay(alignment: .leading) {
             if isActiveInCodex {
                 Capsule()
-                    .fill(Color(hex: "30D158"))
+                    .fill(Theme.healthyAccent)
                     .frame(width: 2, height: max(14, rowHeight - 8))
                     .padding(.leading, 4)
             }
@@ -558,6 +556,19 @@ struct AccountCompactRow: View {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(account.email, forType: .string)
             }
+            Divider()
+            Button("Remove Account...", role: .destructive) {
+                isShowingRemovalConfirmation = true
+            }
+            .disabled(isRemoveBlocked)
+        }
+        .alert("Remove this account?", isPresented: $isShowingRemovalConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) {
+                removeAccount()
+            }
+        } message: {
+            Text("\(account.email) will be removed from Codex Vitals. A local backup is created before its saved profile is deleted.")
         }
     }
 
@@ -601,7 +612,7 @@ struct AccountCompactRow: View {
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 7, weight: .bold))
-                            .foregroundColor(Color(hex: "30D158"))
+                            .foregroundColor(Theme.healthyAccent)
                             .background(Circle().fill(.black.opacity(0.72)))
                     }
                     .help("Active in Codex")
@@ -610,7 +621,9 @@ struct AccountCompactRow: View {
                     .controlSize(.mini)
                     .scaleEffect(0.6)
             } else if hovered {
-                Button(action: removeAccount) {
+                Button {
+                    isShowingRemovalConfirmation = true
+                } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.secondary)
@@ -619,6 +632,7 @@ struct AccountCompactRow: View {
                 .buttonStyle(.plain)
                 .disabled(isRemoveBlocked)
                 .help("Remove from list")
+                .accessibilityLabel("Remove \(account.email)")
             } else {
                 Color.clear.frame(width: 5, height: 5)
             }
@@ -626,46 +640,55 @@ struct AccountCompactRow: View {
         .frame(width: 16, height: 18)
     }
 
-    @ViewBuilder
-    private func sessionMetricGroup(layout: CompactRowLayout.Metrics) -> some View {
-        HStack(spacing: 2) {
-            Group {
-                if !exhausted {
-                    compactQuota(label: "5h", pct: account.sessionFree, gray: false, width: layout.metricWidth)
-                } else {
-                    Color.clear.frame(width: layout.metricWidth, height: 1)
-                }
+    private func quotaMetrics(layout: CompactRowLayout.Metrics) -> some View {
+        HStack(spacing: layout.spacing) {
+            Spacer(minLength: 0)
+            ForEach(Array(account.usageWindows.prefix(2).enumerated()), id: \.offset) { _, window in
+                quotaMetricGroup(window, layout: layout)
             }
-            .opacity(exhausted ? 0.5 : 1)
+        }
+        .frame(width: layout.quotaAreaWidth, alignment: .trailing)
+    }
 
-            sessionResetText(width: layout.sessionResetWidth)
+    private func quotaMetricGroup(
+        _ window: QuotaWindow,
+        layout: CompactRowLayout.Metrics
+    ) -> some View {
+        let dimmed = window.isExhausted || (window.kind == .weekly && exhausted)
+        let resetWidth = window.kind == .fiveHour
+            ? layout.sessionResetWidth
+            : layout.weeklyResetWidth
+
+        return HStack(spacing: 2) {
+            compactQuota(
+                label: window.label,
+                pct: window.remainingPercent,
+                gray: dimmed,
+                width: layout.metricWidth
+            )
+            quotaResetText(window, width: resetWidth, dimmed: dimmed)
         }
     }
 
-    @ViewBuilder
-    private func weeklyMetricGroup(layout: CompactRowLayout.Metrics) -> some View {
-        HStack(spacing: 2) {
-            compactQuota(label: "1w", pct: account.weeklyFree, gray: exhausted, width: layout.metricWidth)
-                .opacity(exhausted ? 0.5 : 1)
+    private func quotaResetText(
+        _ window: QuotaWindow,
+        width: CGFloat,
+        dimmed: Bool
+    ) -> some View {
+        let urgent = window.kind == .weekly && account.isWeeklyResetUrgent && !dimmed
+        let color: Color = urgent ? Theme.warningText : .secondary
+        let text = window.kind == .fiveHour
+            ? ResetFormatter.timeOnly(seconds: window.resetAfterSeconds)
+            : ResetFormatter.compact(seconds: window.resetAfterSeconds)
 
-            weeklyResetText(width: layout.weeklyResetWidth)
-        }
-    }
-
-    @ViewBuilder
-    private func sessionResetText(width: CGFloat) -> some View {
-        Group {
-            if exhausted {
-                Color.clear.frame(width: width, height: 1)
-            } else {
-                ResetTimeBadge(
-                    text: ResetFormatter.timeOnly(seconds: account.sessionResetSeconds),
-                    color: .secondary,
-                    width: width,
-                    help: ResetFormatter.fullTooltip(seconds: account.sessionResetSeconds)
-                )
-            }
-        }
+        return ResetTimeBadge(
+            text: text,
+            color: color,
+            width: width,
+            help: ResetFormatter.fullTooltip(seconds: window.resetAfterSeconds),
+            systemImage: urgent ? "clock" : nil
+        )
+        .opacity(dimmed ? 0.76 : 1)
     }
 
     @ViewBuilder
@@ -678,35 +701,6 @@ struct AccountCompactRow: View {
                 Color.clear.frame(width: width, height: 1)
             }
         }
-    }
-
-    private func weeklyResetText(width: CGFloat) -> some View {
-        ResetTimeBadge(
-            text: weeklyStatusText,
-            color: weeklyStatusColor,
-            width: width,
-            help: account.hasError ? (account.errorMessage ?? "Invalid account") : ResetFormatter.fullTooltip(seconds: account.weeklyResetSeconds),
-            systemImage: weeklyStatusImage
-        )
-    }
-
-    private var weeklyStatusText: String {
-        if account.hasError {
-            return "err"
-        }
-        return ResetFormatter.compact(seconds: account.weeklyResetSeconds)
-    }
-
-    private var weeklyStatusColor: Color {
-        if account.hasError { return Color(hex: "FF453A") }
-        if exhausted { return Theme.weeklyExhaustedBar }
-        return account.isWeeklyResetUrgent ? Color(hex: "FF9F0A") : .secondary
-    }
-
-    private var weeklyStatusImage: String? {
-        if account.hasError { return "exclamationmark.triangle.fill" }
-        if account.isWeeklyResetUrgent && !exhausted { return "clock" }
-        return nil
     }
 
     @ViewBuilder
@@ -762,11 +756,11 @@ struct ResetTimeBadge: View {
         .frame(width: width, height: 18, alignment: .center)
         .background {
             RoundedRectangle(cornerRadius: 5)
-                .fill(color.opacity(0.09))
+                .fill(Theme.metricSurface)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 5)
-                .stroke(color.opacity(0.16), lineWidth: 0.5)
+                .stroke(Theme.metricBorder, lineWidth: 0.5)
         }
         .help(help)
     }
@@ -781,17 +775,17 @@ struct PlanCycleBadge: View {
         Text(text.lowercased())
             .font(.system(size: 9, weight: .bold))
             .monospacedDigit()
-            .foregroundStyle(Color(hex: "FF9F0A"))
+            .foregroundStyle(Theme.warningText)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
             .frame(width: width, height: 18, alignment: .center)
             .background {
                 RoundedRectangle(cornerRadius: 5)
-                    .fill(Color(hex: "FF9F0A").opacity(0.10))
+                    .fill(Theme.warningSurface)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color(hex: "FF9F0A").opacity(0.18), lineWidth: 0.5)
+                    .stroke(Theme.warningBorder, lineWidth: 0.5)
             }
             .help(help)
     }
@@ -804,7 +798,7 @@ struct PlanBadge: View {
     var body: some View {
         if let text {
             Text(text)
-                .font(.system(size: compact ? 7.4 : 9, weight: .bold))
+                .font(.system(size: compact ? 8 : 9, weight: .semibold))
                 .foregroundStyle(Theme.workspaceTextColor(for: text))
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
@@ -812,6 +806,10 @@ struct PlanBadge: View {
                 .padding(.vertical, compact ? 1 : 1.5)
                 .background(Theme.workspaceColor(for: text))
                 .clipShape(Capsule())
+                .overlay {
+                    Capsule()
+                        .stroke(Theme.workspaceBorderColor(for: text), lineWidth: 0.5)
+                }
                 .fixedSize(horizontal: true, vertical: false)
                 .help("Plan: \(text)")
         }
@@ -826,13 +824,13 @@ struct ReloginAccountButton: View {
         Button(action: action) {
             Image(systemName: "arrow.clockwise.circle")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color(hex: "FF9F0A").opacity(hovered ? 1 : 0.88))
+                .foregroundStyle(Theme.warningText.opacity(hovered ? 1 : 0.88))
                 .frame(width: 20, height: 18)
             .background(hovered ? .thinMaterial : .ultraThinMaterial)
             .clipShape(Capsule())
             .overlay {
                 Capsule()
-                    .stroke(Color(hex: "FF9F0A").opacity(hovered ? 0.36 : 0.22), lineWidth: 0.6)
+                    .stroke(Theme.warningText.opacity(hovered ? 0.36 : 0.22), lineWidth: 0.6)
             }
         }
         .buttonStyle(.plain)
@@ -912,14 +910,14 @@ private extension AccountCompactRow {
                         Text("Reconnect")
                             .font(.system(size: 10, weight: .semibold))
                     }
-                    .foregroundColor(Color(hex: "FF9F0A"))
+                    .foregroundColor(Theme.warningText)
                     .padding(.horizontal, 8)
                     .frame(height: 20)
-                    .background(Color(hex: "FF9F0A").opacity(0.11))
+                    .background(Theme.warningSurface)
                     .clipShape(Capsule())
                     .overlay {
                         Capsule()
-                            .stroke(Color(hex: "FF9F0A").opacity(0.24), lineWidth: 0.6)
+                            .stroke(Theme.warningBorder, lineWidth: 0.6)
                     }
                 }
                 .buttonStyle(.plain)
@@ -967,9 +965,11 @@ struct QuotaMeter: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(label)
-                .font(.system(size: 8.5, weight: .bold))
+                .font(.system(size: 8.5, weight: .semibold))
                 .foregroundColor(.secondary)
-                .frame(width: 14, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(width: 13, alignment: .leading)
 
             MeterTrack(pct: pct, fill: fill, height: 4, minimumFill: 2)
                 .frame(width: 26)
@@ -977,20 +977,20 @@ struct QuotaMeter: View {
             Text(String(format: "%.0f%%", pct))
                 .font(.system(size: 9.5, weight: .semibold))
                 .monospacedDigit()
-                .foregroundColor(fill)
+                .foregroundColor(dimmed ? .secondary : Theme.statusTextColor(for: pct))
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .frame(width: 24, alignment: .trailing)
+                .frame(width: 29, alignment: .trailing)
         }
         .padding(.horizontal, 4)
         .frame(width: width, height: 18, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 5)
-                .fill(Color.primary.opacity(dimmed ? 0.035 : 0.045))
+                .fill(dimmed ? Theme.metricSurface.opacity(0.7) : Theme.metricSurface)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 5)
-                .stroke(fill.opacity(dimmed ? 0.12 : 0.22), lineWidth: 0.6)
+                .stroke(Theme.metricBorder, lineWidth: 0.6)
         }
         .opacity(dimmed ? 0.76 : 1)
     }
@@ -1050,6 +1050,10 @@ struct WorkspaceChip: View {
             .padding(.vertical, compact ? 1 : 2)
             .background(Theme.workspaceColor(for: colorKey))
             .cornerRadius(4)
+            .overlay {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Theme.workspaceBorderColor(for: colorKey), lineWidth: 0.5)
+            }
     }
 }
 
@@ -1070,11 +1074,12 @@ struct BarRow: View {
     var body: some View {
         let dimmed = style == .weeklyExhausted
         let fillColor: Color = dimmed ? Theme.weeklyExhaustedBar : Theme.barColor(for: pct)
+        let textColor: Color = dimmed ? .secondary : Theme.statusTextColor(for: pct)
 
         HStack(spacing: 6) {
             Text(label)
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(dimmed ? .secondary : fillColor)
+                .foregroundColor(textColor)
                 .frame(width: 28, alignment: .leading)
                 .opacity(dimmed ? 0.5 : 1)
 
@@ -1083,18 +1088,18 @@ struct BarRow: View {
                 .padding(.vertical, 3)
                 .background {
                     RoundedRectangle(cornerRadius: 5)
-                        .fill(Color.primary.opacity(dimmed ? 0.025 : 0.035))
+                        .fill(dimmed ? Theme.metricSurface.opacity(0.7) : Theme.metricSurface)
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 5)
-                        .stroke(fillColor.opacity(dimmed ? 0.1 : 0.16), lineWidth: 0.5)
+                        .stroke(Theme.metricBorder, lineWidth: 0.5)
                 }
             .opacity(dimmed ? 0.5 : 1)
 
             Text(String(format: "%.0f%%", pct))
                 .font(.system(size: 12, weight: .semibold))
                 .monospacedDigit()
-                .foregroundColor(dimmed ? .secondary : fillColor)
+                .foregroundColor(textColor)
                 .frame(width: 38, alignment: .trailing)
                 .opacity(dimmed ? 0.5 : 1)
 
@@ -1106,11 +1111,11 @@ struct BarRow: View {
                 if urgentReset && !dimmed {
                     Image(systemName: "clock")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(Color(hex: "FF9F0A"))
+                        .foregroundColor(Theme.warningText)
                 }
                 Text(dimmed ? ResetFormatter.formatReset(seconds: resetSeconds) : ResetFormatter.format(seconds: resetSeconds))
                     .font(.system(size: 11))
-                    .foregroundColor(urgentReset && !dimmed ? Color(hex: "FF9F0A") : .secondary)
+                    .foregroundColor(urgentReset && !dimmed ? Theme.warningText : .secondary)
                     .help(ResetFormatter.fullTooltip(seconds: resetSeconds))
             }
         }

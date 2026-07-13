@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: UsageViewModel
+    @ObservedObject var appUpdater: AppUpdater
     @StateObject private var launchAtLogin = LaunchAtLoginModel()
     private let contentWidth: CGFloat = 360
 
@@ -31,7 +32,7 @@ struct SettingsView: View {
                         get: { launchAtLogin.isEnabled },
                         set: { launchAtLogin.setEnabled($0) }
                     )) {
-                        Label("Launch at Login", systemImage: "poweron")
+                        Label("Launch at Login", systemImage: "power.circle")
                     }
                 }
 
@@ -64,11 +65,70 @@ struct SettingsView: View {
             )
             .frame(width: contentWidth)
 
-            Text(statusText)
-                .font(.system(size: 11))
-                .foregroundColor(launchAtLogin.errorMessage == nil ? .secondary : .orange)
-                .lineLimit(2)
-                .frame(width: contentWidth, alignment: .leading)
+            if let launchStatusMessage {
+                Text(launchStatusMessage)
+                    .font(.system(size: 11))
+                    .foregroundColor(Theme.warningText)
+                    .lineLimit(2)
+                    .frame(width: contentWidth, alignment: .leading)
+            }
+
+            VStack(spacing: 0) {
+                settingsRow {
+                    Toggle(isOn: Binding(
+                        get: { appUpdater.automaticallyChecksForUpdates },
+                        set: { appUpdater.setAutomaticallyChecksForUpdates($0) }
+                    )) {
+                        Label("Check Automatically", systemImage: "clock.badge.checkmark")
+                    }
+                }
+
+                Divider()
+                    .opacity(0.12)
+                    .padding(.leading, 14)
+
+                settingsRow {
+                    Toggle(isOn: Binding(
+                        get: { appUpdater.automaticallyInstallsUpdates },
+                        set: { appUpdater.setAutomaticallyInstallsUpdates($0) }
+                    )) {
+                        Label("Install Automatically", systemImage: "arrow.down.app")
+                    }
+                    .disabled(!appUpdater.automaticallyChecksForUpdates)
+                }
+
+                Divider()
+                    .opacity(0.12)
+                    .padding(.leading, 14)
+
+                settingsRow {
+                    HStack(spacing: 10) {
+                        Button {
+                            appUpdater.checkForUpdates()
+                        } label: {
+                            Label("Check for Updates", systemImage: "arrow.clockwise.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!appUpdater.canCheckForUpdates)
+                        .help("Check for a new Codex Vitals version")
+
+                        Spacer(minLength: 8)
+
+                        Text(AppInfo.versionText)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+            .frame(width: contentWidth)
 
             VStack(spacing: 0) {
                 Button {
@@ -177,14 +237,15 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             launchAtLogin.refresh()
+            appUpdater.refreshSettings()
         }
     }
 
-    private var statusText: String {
+    private var launchStatusMessage: String? {
         if let errorMessage = launchAtLogin.errorMessage {
             return errorMessage
         }
-        return launchAtLogin.statusText
+        return launchAtLogin.statusNotice
     }
 
     private func open(_ url: URL) {
@@ -233,13 +294,13 @@ private struct RamterStudioLogoView: View {
 @MainActor
 final class LaunchAtLoginModel: ObservableObject {
     @Published var isEnabled = false
-    @Published var statusText = ""
+    @Published private(set) var statusNotice: String?
     @Published var errorMessage: String?
 
     func refresh() {
         let status = SMAppService.mainApp.status
         isEnabled = status == .enabled
-        statusText = status.displayText
+        statusNotice = status.noticeText
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -260,16 +321,14 @@ final class LaunchAtLoginModel: ObservableObject {
 }
 
 private extension SMAppService.Status {
-    var displayText: String {
+    var noticeText: String? {
         switch self {
-        case .enabled:
-            return "Launch at Login is enabled"
+        case .enabled, .notRegistered:
+            return nil
         case .requiresApproval:
             return "Launch at Login needs approval in System Settings"
         case .notFound:
             return "Launch at Login is unavailable for this build"
-        case .notRegistered:
-            return "Launch at Login is off"
         @unknown default:
             return "Launch at Login status is unknown"
         }

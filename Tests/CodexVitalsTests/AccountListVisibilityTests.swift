@@ -65,6 +65,121 @@ final class AccountListVisibilityTests: XCTestCase {
         XCTAssertEqual(account.freePlanResetSeconds, 86_400)
     }
 
+    @MainActor
+    func testWeeklyOnlyPrimaryWindowDoesNotCreateFakeFiveHourQuota() {
+        let windows = UsageService.quotaWindows(from: [
+            "primary_window": [
+                "limit_window_seconds": 604_800,
+                "used_percent": 14,
+                "reset_after_seconds": 597_667,
+            ],
+            "secondary_window": NSNull(),
+        ])
+
+        let account = Account(
+            id: "weekly@example.com|acc",
+            profileKey: "weekly@example.com",
+            email: "weekly@example.com",
+            workspace: "pro",
+            plan: "pro",
+            sessionFree: 100,
+            weeklyFree: 100,
+            sessionResetSeconds: 0,
+            weeklyResetSeconds: 0,
+            quotaWindows: windows,
+            planRenewalDate: nil,
+            hasError: false,
+            errorMessage: nil
+        )
+
+        XCTAssertEqual(windows.map(\.label), ["1w"])
+        XCTAssertNil(account.fiveHourQuotaWindow)
+        XCTAssertEqual(account.weeklyQuotaWindow?.remainingPercent, 86)
+        XCTAssertEqual(UsageViewModel.smartScore(account), 86)
+        XCTAssertTrue(account.isUsableForCodex)
+    }
+
+    @MainActor
+    func testExhaustedWeeklyOnlyWindowUsesWeeklyReset() {
+        let windows = UsageService.quotaWindows(from: [
+            "primary_window": [
+                "limit_window_seconds": 604_800,
+                "used_percent": 100,
+                "reset_after_seconds": 345_600,
+            ],
+        ])
+
+        let account = Account(
+            id: "exhausted@example.com|acc",
+            profileKey: "exhausted@example.com",
+            email: "exhausted@example.com",
+            workspace: "pro",
+            plan: "pro",
+            sessionFree: 100,
+            weeklyFree: 100,
+            sessionResetSeconds: 0,
+            weeklyResetSeconds: 0,
+            quotaWindows: windows,
+            planRenewalDate: nil,
+            hasError: false,
+            errorMessage: nil
+        )
+
+        XCTAssertTrue(account.isWeeklyExhausted)
+        XCTAssertFalse(account.isUsableForCodex)
+        XCTAssertEqual(account.nextWaitingResetSeconds, 345_600)
+    }
+
+    func testQuotaWindowsUseDurationInsteadOfPrimarySecondaryPosition() {
+        let windows = UsageService.quotaWindows(from: [
+            "primary_window": [
+                "limit_window_seconds": 604_800.0,
+                "used_percent": 30.0,
+                "reset_after_seconds": 500_000.0,
+            ],
+            "secondary_window": [
+                "limit_window_seconds": 18_000.0,
+                "used_percent": 20.0,
+                "reset_after_seconds": 10_000.0,
+            ],
+        ])
+
+        XCTAssertEqual(windows.map(\.label), ["5h", "1w"])
+        XCTAssertEqual(windows.map(\.remainingPercent), [80, 70])
+    }
+
+    func testUnknownQuotaDurationUsesItsActualPeriodLabel() {
+        let windows = UsageService.quotaWindows(from: [
+            "primary_window": [
+                "limit_window_seconds": 86_400,
+                "used_percent": 25,
+                "reset_after_seconds": 40_000,
+            ],
+        ])
+
+        XCTAssertEqual(windows.map(\.label), ["1d"])
+        XCTAssertEqual(windows.first?.kind, .custom)
+    }
+
+    func testLegacySnapshotWithoutQuotaWindowsKeepsFiveHourAndWeeklyWindows() throws {
+        let account = makeAccount(
+            id: "legacy@example.com|acc",
+            email: "legacy@example.com",
+            plan: "plus",
+            sessionFree: 75,
+            weeklyFree: 60,
+            sessionResetSeconds: 1_000,
+            weeklyResetSeconds: 500_000
+        )
+
+        let data = try JSONEncoder().encode(account)
+        let decoded = try JSONDecoder().decode(Account.self, from: data)
+
+        XCTAssertNil(decoded.quotaWindows)
+        XCTAssertEqual(decoded.usageWindows.map(\.label), ["5h", "1w"])
+        XCTAssertEqual(decoded.limitingQuotaRemaining, 60)
+    }
+
     func testPlanDisplayNameNormalizesCommonPlans() {
         XCTAssertEqual(PlanDisplayFormatter.badgeText(for: "pro"), "Pro")
         XCTAssertEqual(PlanDisplayFormatter.badgeText(for: "plus"), "Plus")

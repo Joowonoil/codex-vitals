@@ -19,14 +19,28 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.2</string>
+	<string>1.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.2</string>
+	<string>1.3.0</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright 2026 Codex Vitals contributors</string>
+	<key>SUFeedURL</key>
+	<string>https://ramterstudio.com/codex-vitals/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>P/Fu4HaJBXKlpAkqF5HYux/vFTW3dHC12/StFqj+QIA=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>

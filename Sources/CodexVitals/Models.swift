@@ -1,6 +1,69 @@
 import AppKit
 import SwiftUI
 
+// MARK: - Quota Window
+
+struct QuotaWindow: Equatable, Codable {
+    enum Kind: Equatable {
+        case fiveHour
+        case weekly
+        case custom
+    }
+
+    static let fiveHourSeconds: Double = 5 * 60 * 60
+    static let weeklySeconds: Double = 7 * 24 * 60 * 60
+
+    let limitSeconds: Double
+    let remainingPercent: Double
+    let resetAfterSeconds: Double
+
+    init(limitSeconds: Double, remainingPercent: Double, resetAfterSeconds: Double) {
+        self.limitSeconds = limitSeconds
+        self.remainingPercent = min(100, max(0, remainingPercent))
+        self.resetAfterSeconds = max(0, resetAfterSeconds)
+    }
+
+    var kind: Kind {
+        switch Int(limitSeconds.rounded()) {
+        case Int(Self.fiveHourSeconds): return .fiveHour
+        case Int(Self.weeklySeconds): return .weekly
+        default: return .custom
+        }
+    }
+
+    var label: String {
+        switch kind {
+        case .fiveHour:
+            return "5h"
+        case .weekly:
+            return "1w"
+        case .custom:
+            return Self.durationLabel(seconds: limitSeconds)
+        }
+    }
+
+    var isExhausted: Bool {
+        remainingPercent <= 0.001
+    }
+
+    private static func durationLabel(seconds rawSeconds: Double) -> String {
+        let seconds = max(1, Int(rawSeconds.rounded()))
+        if seconds.isMultiple(of: Int(weeklySeconds)) {
+            return "\(seconds / Int(weeklySeconds))w"
+        }
+        if seconds.isMultiple(of: 24 * 60 * 60) {
+            return "\(seconds / (24 * 60 * 60))d"
+        }
+        if seconds.isMultiple(of: 60 * 60) {
+            return "\(seconds / (60 * 60))h"
+        }
+        if seconds.isMultiple(of: 60) {
+            return "\(seconds / 60)m"
+        }
+        return "\(seconds)s"
+    }
+}
+
 // MARK: - Account
 
 struct Account: Identifiable, Equatable, Codable {
@@ -15,6 +78,7 @@ struct Account: Identifiable, Equatable, Codable {
     let weeklyFree: Double
     let sessionResetSeconds: Double
     let weeklyResetSeconds: Double
+    var quotaWindows: [QuotaWindow]? = nil
     var planRenewalDate: Date?
     let hasError: Bool
     let errorMessage: String?
@@ -67,57 +131,105 @@ struct Account: Identifiable, Equatable, Codable {
         return String(pieces[1])
     }
 
-    /// Weekly quota fully used; session line is hidden and cell uses exhausted styling.
-    var isWeeklyExhausted: Bool { hasError || weeklyFree <= 0.001 }
+    /// New snapshots store exact API windows. Older snapshots fall back to the legacy 5h/1w fields.
+    var usageWindows: [QuotaWindow] {
+        if let quotaWindows {
+            return quotaWindows.sorted { $0.limitSeconds < $1.limitSeconds }
+        }
+        guard !hasError else { return [] }
+        return [
+            QuotaWindow(
+                limitSeconds: QuotaWindow.fiveHourSeconds,
+                remainingPercent: sessionFree,
+                resetAfterSeconds: sessionResetSeconds
+            ),
+            QuotaWindow(
+                limitSeconds: QuotaWindow.weeklySeconds,
+                remainingPercent: weeklyFree,
+                resetAfterSeconds: weeklyResetSeconds
+            ),
+        ]
+    }
+
+    var fiveHourQuotaWindow: QuotaWindow? {
+        usageWindows.first { $0.kind == .fiveHour }
+    }
+
+    var weeklyQuotaWindow: QuotaWindow? {
+        usageWindows.first { $0.kind == .weekly }
+    }
+
+    var limitingQuotaRemaining: Double {
+        usageWindows.map(\.remainingPercent).min() ?? 0
+    }
+
+    /// Weekly quota fully used; the row uses exhausted styling.
+    var isWeeklyExhausted: Bool {
+        hasError || weeklyQuotaWindow?.isExhausted == true
+    }
 
     var isFreePlan: Bool {
         plan.codexVitalsNormalized == "free"
     }
 
     var isFreeWaitingForReset: Bool {
-        !hasError
-            && isFreePlan
-            && sessionFree <= 0.001
-            && weeklyFree > 0.001
-            && freePlanResetSeconds > 0
+        guard !hasError,
+              isFreePlan,
+              let sessionWindow = fiveHourQuotaWindow,
+              sessionWindow.isExhausted,
+              weeklyQuotaWindow?.isExhausted != true else {
+            return false
+        }
+        return sessionWindow.resetAfterSeconds > 0
     }
 
     var freePlanResetSeconds: Double {
-        if sessionResetSeconds > 0 { return sessionResetSeconds }
-        return weeklyResetSeconds
+        fiveHourQuotaWindow?.resetAfterSeconds
+            ?? weeklyQuotaWindow?.resetAfterSeconds
+            ?? 0
     }
 
     var nextWaitingResetSeconds: Double {
-        if sessionFree <= 0.001, sessionResetSeconds > 0 {
-            return sessionResetSeconds
-        }
-        if weeklyFree <= 0.001, weeklyResetSeconds > 0 {
-            return weeklyResetSeconds
-        }
-        if weeklyResetSeconds > 0 {
-            return weeklyResetSeconds
-        }
-        if sessionResetSeconds > 0 {
-            return sessionResetSeconds
-        }
-        return Double.greatestFiniteMagnitude
+        let exhaustedReset = usageWindows
+            .filter(\.isExhausted)
+            .map(\.resetAfterSeconds)
+            .filter { $0 > 0 }
+            .min()
+        if let exhaustedReset { return exhaustedReset }
+
+        return usageWindows
+            .map(\.resetAfterSeconds)
+            .filter { $0 > 0 }
+            .min()
+            ?? Double.greatestFiniteMagnitude
     }
 
     var isUsableForCodex: Bool {
-        !hasError && sessionFree > 0.001 && weeklyFree > 0.001
+        !hasError && !usageWindows.isEmpty && usageWindows.allSatisfy { !$0.isExhausted }
     }
 
     /// Hours until weekly window resets (from API `reset_after_seconds`).
-    var hoursUntilWeeklyReset: Double { max(0, weeklyResetSeconds / 3600) }
+    var hoursUntilWeeklyReset: Double {
+        guard let weeklyQuotaWindow else { return .infinity }
+        return max(0, weeklyQuotaWindow.resetAfterSeconds / 3600)
+    }
 
     /// Highlight reset text when meaningful balance expires soon.
     var isWeeklyResetUrgent: Bool {
-        isUsableForCodex && weeklyFree >= 20 && hoursUntilWeeklyReset < 12
+        guard let weeklyQuotaWindow else { return false }
+        return isUsableForCodex
+            && weeklyQuotaWindow.remainingPercent >= 20
+            && hoursUntilWeeklyReset < 12
     }
 
     /// Top priority strip: useful balance that resets in less than 24 hours.
     var isWeeklyPriority: Bool {
-        isUsableForCodex && sessionFree >= 20 && weeklyFree >= 20 && hoursUntilWeeklyReset < 24
+        guard let weeklyQuotaWindow else { return false }
+        let shortTermRemaining = fiveHourQuotaWindow?.remainingPercent ?? 100
+        return isUsableForCodex
+            && shortTermRemaining >= 20
+            && weeklyQuotaWindow.remainingPercent >= 20
+            && hoursUntilWeeklyReset < 24
     }
 
     var planDaysRemaining: Int? {
@@ -203,14 +315,39 @@ extension String {
 // MARK: - Theme
 
 struct Theme {
+    static let healthyAccent = Color(hex: "30D158")
+    static let warningAccent = Color(hex: "FF9F0A")
+    static let dangerAccent = Color(hex: "FF453A")
+
+    static let healthyText = Color(lightHex: "157D40", darkHex: "30D158")
+    static let warningText = Color(lightHex: "A25800", darkHex: "FF9F0A")
+    static let dangerText = Color(lightHex: "B92F27", darkHex: "FF453A")
+
+    static let popoverSurfaceTint = Color(lightHex: "18FFFFFF", darkHex: "12000000")
+    static let metricSurface = Color(lightHex: "42FFFFFF", darkHex: "14FFFFFF")
+    static let metricBorder = Color(lightHex: "18000000", darkHex: "24FFFFFF")
+    static let warningSurface = Color(lightHex: "14FF9F0A", darkHex: "1FFF9F0A")
+    static let warningBorder = Color(lightHex: "33914C00", darkHex: "38FF9F0A")
+
     /// Bar fill color based on % free remaining.
     static func barColor(for pct: Double) -> Color {
         switch pct {
-        case 50...:       return Color(hex: "30D158")   // green
+        case 50...:       return healthyAccent
         case 20..<50:     return Color(lightHex: "8A6A00", darkHex: "FFD60A")   // yellow
-        case 5..<20:      return Color(hex: "FF9F0A")   // orange
-        case 0.001..<5:   return Color(hex: "FF453A")   // red
+        case 5..<20:      return warningAccent
+        case 0.001..<5:   return dangerAccent
         default:          return Color(hex: "8E8E93")   // gray (0 %)
+        }
+    }
+
+    /// Small status text needs more contrast than the brighter graphical bar fill.
+    static func statusTextColor(for pct: Double) -> Color {
+        switch pct {
+        case 50...:       return healthyText
+        case 20..<50:     return Color(lightHex: "806400", darkHex: "FFD60A")
+        case 5..<20:      return warningText
+        case 0.001..<5:   return dangerText
+        default:          return Color(lightHex: "5F6368", darkHex: "A9A9AE")
         }
     }
 
@@ -219,45 +356,81 @@ struct Theme {
 
     /// Workspace chip background.
     static func workspaceColor(for ws: String) -> Color {
-        if let color = planColor(for: ws) {
-            return color
+        let hex = workspaceHex(for: ws)
+        return Color(lightHex: "38\(hex)", darkHex: "4D\(hex)")
+    }
+
+    static func workspaceBorderColor(for ws: String) -> Color {
+        let hex = workspaceHex(for: ws)
+        return Color(lightHex: "45\(hex)", darkHex: "5C\(hex)")
+    }
+
+    /// Keep chip labels colorful while darkening or lightening the accent for contrast.
+    static func workspaceTextColor(for ws: String) -> Color {
+        let hex = workspaceHex(for: ws)
+        return Color(
+            lightHex: scaledHex(hex, by: 0.78),
+            darkHex: lightenedHex(hex, amount: 0.32)
+        )
+    }
+
+    private static func workspaceHex(for ws: String) -> String {
+        if let hex = planHex(for: ws) {
+            return hex
         }
         let stableIndex = ws.lowercased().unicodeScalars.reduce(0) { partial, scalar in
             (partial &* 31 &+ Int(scalar.value)) & 0x7fffffff
         }
         switch stableIndex % 6 {
-        case 0: return Color(hex: "5F80A8")
-        case 1: return Color(hex: "6F9277")
-        case 2: return Color(hex: "8A6F9B")
-        case 3: return Color(hex: "A7666E")
-        case 4: return Color(hex: "AF8158")
-        default: return Color(hex: "7871A6")
+        case 0: return "5F80A8"
+        case 1: return "6F9277"
+        case 2: return "8A6F9B"
+        case 3: return "A7666E"
+        case 4: return "AF8158"
+        default: return "7871A6"
         }
     }
 
-    /// Workspace chip text (black or white for contrast).
-    static func workspaceTextColor(for ws: String) -> Color {
-        Color.white.opacity(0.96)
-    }
-
-    private static func planColor(for raw: String) -> Color? {
+    private static func planHex(for raw: String) -> String? {
         let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
             .replacingOccurrences(of: "_", with: " ")
             .replacingOccurrences(of: "-", with: " ")
         if key.contains("pro") && key.contains("lite") {
-            return Color(hex: "5E8CDA")
+            return "5E8CDA"
         }
         if key == "pro" || key.contains("pro ") {
-            return Color(hex: "7D6AE7")
+            return "7D6AE7"
         }
         if key == "plus" {
-            return Color(hex: "2C8E7B")
+            return "2C8E7B"
         }
         if key == "free" {
-            return Color(hex: "6E7681")
+            return "6E7681"
         }
         return nil
+    }
+
+    private static func scaledHex(_ hex: String, by factor: Double) -> String {
+        transformedHex(hex) { component in
+            Int((Double(component) * factor).rounded())
+        }
+    }
+
+    private static func lightenedHex(_ hex: String, amount: Double) -> String {
+        transformedHex(hex) { component in
+            Int((Double(component) + (255 - Double(component)) * amount).rounded())
+        }
+    }
+
+    private static func transformedHex(
+        _ hex: String,
+        transform: (Int) -> Int
+    ) -> String {
+        let value = Int(hex, radix: 16) ?? 0
+        let components = [value >> 16, value >> 8 & 0xFF, value & 0xFF]
+            .map { min(255, max(0, transform($0))) }
+        return String(format: "%02X%02X%02X", components[0], components[1], components[2])
     }
 }
 

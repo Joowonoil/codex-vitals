@@ -97,15 +97,18 @@ final class UsageViewModel: ObservableObject {
 
     /// Smart score for default ordering of active rows.
     static func smartScore(_ a: Account) -> Double {
-        min(a.sessionFree, a.weeklyFree)
+        a.limitingQuotaRemaining
     }
 
     /// Urgency for priority ordering.
     static func expiringScore(_ a: Account) -> Double {
-        let w = a.weeklyFree
+        guard let weeklyWindow = a.weeklyQuotaWindow else {
+            return smartScore(a)
+        }
+        let w = weeklyWindow.remainingPercent
         let h = min(max(0, a.hoursUntilWeeklyReset), 168)
         let urgencyMultiplier = 1 + (168 - h) / 168 * 2
-        let sessionHealthFactor = min(a.sessionFree / 30, 1.0)
+        let sessionHealthFactor = min((a.fiveHourQuotaWindow?.remainingPercent ?? 100) / 30, 1.0)
         return w * urgencyMultiplier * sessionHealthFactor
     }
 
@@ -134,8 +137,12 @@ final class UsageViewModel: ObservableObject {
     private static func compareSmart(_ a: Account, _ b: Account) -> Bool {
         let sa = smartScore(a), sb = smartScore(b)
         if sa != sb { return sa > sb }
-        if a.sessionFree != b.sessionFree { return a.sessionFree > b.sessionFree }
-        return a.weeklyFree > b.weeklyFree
+        let aShort = a.fiveHourQuotaWindow?.remainingPercent ?? 100
+        let bShort = b.fiveHourQuotaWindow?.remainingPercent ?? 100
+        if aShort != bShort { return aShort > bShort }
+        let aWeekly = a.weeklyQuotaWindow?.remainingPercent ?? 100
+        let bWeekly = b.weeklyQuotaWindow?.remainingPercent ?? 100
+        return aWeekly > bWeekly
     }
 
     private static func comparePriority(_ a: Account, _ b: Account) -> Bool {

@@ -104,11 +104,10 @@ final class UsageService: Sendable {
 
             let usageError = usageErrorMessage(from: usage)
             let rl  = usage["rate_limit"]       as? [String: Any]
-            let pw  = rl?["primary_window"]     as? [String: Any] ?? [:]
-            let sw  = rl?["secondary_window"]   as? [String: Any] ?? [:]
-            let hasUsage = usageError == nil && rl != nil
-            let h5  = hasUsage ? (pw["used_percent"] as? Double ?? 0) : 100
-            let wk  = hasUsage ? (sw["used_percent"] as? Double ?? 0) : 100
+            let quotaWindows = Self.quotaWindows(from: rl)
+            let hasUsage = usageError == nil && !quotaWindows.isEmpty
+            let fiveHourWindow = quotaWindows.first { $0.kind == .fiveHour }
+            let weeklyWindow = quotaWindows.first { $0.kind == .weekly }
 
             let planType = resolvedPlanType(profile: p, usage: usage)
             let usesWorkspaceName = workspaceNamedAccountIDs.contains(aid)
@@ -152,13 +151,14 @@ final class UsageService: Sendable {
                 workspace: workspaceName,
                 workspaceAlias: workspaceAlias,
                 plan: planType ?? "?",
-                sessionFree: max(0, 100 - h5),
-                weeklyFree:  max(0, 100 - wk),
-                sessionResetSeconds: pw["reset_after_seconds"] as? Double ?? 0,
-                weeklyResetSeconds:  sw["reset_after_seconds"] as? Double ?? 0,
+                sessionFree: fiveHourWindow?.remainingPercent ?? 100,
+                weeklyFree: weeklyWindow?.remainingPercent ?? 100,
+                sessionResetSeconds: fiveHourWindow?.resetAfterSeconds ?? 0,
+                weeklyResetSeconds: weeklyWindow?.resetAfterSeconds ?? 0,
+                quotaWindows: hasUsage ? quotaWindows : [],
                 planRenewalDate: planRenewalDate,
                 hasError: !hasUsage,
-                errorMessage: usageError ?? (rl == nil ? "Codex usage unavailable" : nil)
+                errorMessage: usageError ?? (!hasUsage ? "Codex usage unavailable" : nil)
             ))
         }
         applyWorkspacePlanDates(to: &accounts)
@@ -169,6 +169,34 @@ final class UsageService: Sendable {
 
     static func dedupID(email: String, accountID: String, profileKey: String) -> String {
         "\(email.lowercased())|\(accountID.isEmpty ? profileKey : accountID)"
+    }
+
+    static func quotaWindows(from rateLimit: [String: Any]?) -> [QuotaWindow] {
+        guard let rateLimit else { return [] }
+
+        return ["primary_window", "secondary_window"]
+            .compactMap { key -> QuotaWindow? in
+                guard let window = rateLimit[key] as? [String: Any],
+                      let limitSeconds = numericValue(window["limit_window_seconds"]),
+                      limitSeconds > 0,
+                      let usedPercent = numericValue(window["used_percent"]) else {
+                    return nil
+                }
+
+                return QuotaWindow(
+                    limitSeconds: limitSeconds,
+                    remainingPercent: 100 - usedPercent,
+                    resetAfterSeconds: numericValue(window["reset_after_seconds"]) ?? 0
+                )
+            }
+            .sorted { $0.limitSeconds < $1.limitSeconds }
+    }
+
+    private static func numericValue(_ value: Any?) -> Double? {
+        if let value = value as? Double { return value }
+        if let value = value as? Int { return Double(value) }
+        if let value = value as? NSNumber { return value.doubleValue }
+        return nil
     }
 
     private func fetchUsage(token: String) async -> [String: Any] {

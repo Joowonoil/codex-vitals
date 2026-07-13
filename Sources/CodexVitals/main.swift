@@ -13,6 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var popover: NSPopover!
     private let viewModel = UsageViewModel()
     private let authMirrorService = CodexAuthMirrorService()
+    private var appUpdater: AppUpdater!
     private var eventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -21,6 +22,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             try? AccountProfileStore.remove(profileKeys: removedProfileKeys)
         }
         authMirrorService.start()
+        appUpdater = AppUpdater()
         setupStatusItem()
         setupPopover()
         viewModel.refresh()
@@ -48,7 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     // MARK: - Popover
 
     private func setupPopover() {
-        let root = ContentView(viewModel: viewModel)
+        let root = ContentView(viewModel: viewModel, appUpdater: appUpdater)
         let controller = NSHostingController(rootView: root)
         controller.preferredContentSize = Self.preferredContentSize
         if #available(macOS 13.0, *) {

@@ -2,6 +2,16 @@
 
 All notable changes to Codex Vitals will be documented here.
 
+## 1.3.0 - 2026-07-13
+
+- Added signed in-app updates with manual checks, 24-hour background checks, and optional automatic installation through Sparkle.
+- Restored the current app version and update controls in Settings.
+- Added confirmation before removing a saved account and exposed removal in the row context menu.
+- Clarified toolbar grouping and settings navigation.
+- Simplified Launch at Login status messaging so only actionable states are shown.
+- Improved quota-window detection when OpenAI temporarily reports only a weekly limit.
+- Refined account-row contrast and preserved full-size percentage text at 100%.
+
 ## 1.2.2 - 2026-07-13
 
 - Added support for the Codex experience integrated into `ChatGPT.app` while preserving compatibility with the legacy `Codex.app`.

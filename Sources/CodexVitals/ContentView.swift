@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var viewModel: UsageViewModel
+    @ObservedObject var appUpdater: AppUpdater
     @State private var isShowingSettings = false
 
     static let preferredWidth: CGFloat = 652
@@ -23,7 +24,7 @@ struct ContentView: View {
             thinDivider
 
             if isShowingSettings {
-                SettingsView(viewModel: viewModel)
+                SettingsView(viewModel: viewModel, appUpdater: appUpdater)
                     .frame(maxWidth: .infinity, maxHeight: Self.listMaxHeight())
             } else {
                 if viewModel.isLoading && viewModel.accounts.isEmpty {
@@ -44,7 +45,7 @@ struct ContentView: View {
             if !isShowingSettings && viewModel.errorsCount > 0 {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
+                        .foregroundColor(Theme.warningText)
                         .font(.system(size: 11))
                     Text("\(viewModel.errorsCount) account(s) with errors")
                         .font(.system(size: 11))
@@ -60,6 +61,7 @@ struct ContentView: View {
             }
         }
         .frame(width: Self.preferredWidth)
+        .background(Theme.popoverSurfaceTint)
         .background(.ultraThinMaterial)
         .background(
             Group {
@@ -128,6 +130,7 @@ struct HeaderView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Back")
+                .accessibilityLabel("Back to accounts")
 
                 Text("Settings")
                     .font(.system(size: 13, weight: .semibold))
@@ -153,12 +156,13 @@ struct HeaderView: View {
                 } label: {
                     Image(systemName: vm.isAddingAccount ? "xmark.circle.fill" : "person.badge.plus")
                         .font(.system(size: 13))
-                        .foregroundColor(vm.isAddingAccount ? .secondary : Color(hex: "30D158"))
+                        .foregroundColor(vm.isAddingAccount ? .secondary : Theme.healthyAccent)
                         .frame(width: 24, height: 22)
                 }
                 .buttonStyle(.plain)
                 .disabled(vm.hasPendingAccountAction && !vm.isAddingAccount)
                 .help(vm.isAddingAccount ? "Cancel" : "Add account")
+                .accessibilityLabel(vm.isAddingAccount ? "Cancel adding account" : "Add account")
 
                 workspaceGroupingButton
 
@@ -170,7 +174,7 @@ struct HeaderView: View {
                     } else if showsRefreshSuccess {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(Color(hex: "30D158"))
+                            .foregroundColor(Theme.healthyAccent)
                     } else {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 14)).foregroundColor(.secondary)
@@ -179,18 +183,25 @@ struct HeaderView: View {
                 .buttonStyle(.plain).frame(width: 22, height: 22)
                 .disabled(vm.isLoading)
                 .help(showsRefreshSuccess ? "Updated" : "Refresh")
-            }
+                .accessibilityLabel(showsRefreshSuccess ? "Usage updated" : "Refresh all accounts")
 
-            Button {
-                isShowingSettings.toggle()
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(isShowingSettings ? .primary : .secondary)
-                    .frame(width: 24, height: 22)
+                Divider()
+                    .frame(height: 16)
+                    .opacity(0.24)
+                    .padding(.horizontal, 2)
+
+                Button {
+                    isShowingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 24, height: 22)
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
+                .accessibilityLabel("Settings")
             }
-            .buttonStyle(.plain)
-            .help(isShowingSettings ? "Accounts" : "Settings")
 
             Button {
                 NSApp.terminate(nil)
@@ -202,6 +213,7 @@ struct HeaderView: View {
             }
             .buttonStyle(.plain)
             .help("Quit Codex Vitals")
+            .accessibilityLabel("Quit Codex Vitals")
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .frame(height: 44)
@@ -277,13 +289,14 @@ struct HeaderView: View {
         }
         .buttonStyle(.plain)
         .help(shouldShowSearchField ? "Hide search" : "Search")
+        .accessibilityLabel(shouldShowSearchField ? "Hide search" : "Search accounts")
     }
 
     private var workspaceGroupingButton: some View {
         Button {
             vm.toggleGroupByWorkspace()
         } label: {
-            Image(systemName: "slider.horizontal.3")
+            Image(systemName: "rectangle.3.group")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(vm.groupByWorkspace ? .primary : .secondary)
                 .frame(width: 28, height: 24)
@@ -292,6 +305,7 @@ struct HeaderView: View {
         }
         .buttonStyle(.plain)
         .help(vm.groupByWorkspace ? "Ungroup workspaces" : "Group by workspace")
+        .accessibilityLabel(vm.groupByWorkspace ? "Ungroup workspaces" : "Group accounts by workspace")
     }
 
     private func requestRefresh() {
@@ -334,7 +348,7 @@ struct AppBrandIcon: View {
             } else {
                 Image(systemName: "waveform.path.ecg")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "30D158"))
+                    .foregroundStyle(Theme.healthyAccent)
             }
         }
         .frame(width: 20, height: 20)
@@ -418,7 +432,7 @@ struct FooterView: View {
         HStack(spacing: 8) {
             Text(message)
                 .font(.system(size: 11))
-                .foregroundColor(.orange)
+                .foregroundColor(Theme.warningText)
                 .lineLimit(1)
                 .truncationMode(.tail)
 
