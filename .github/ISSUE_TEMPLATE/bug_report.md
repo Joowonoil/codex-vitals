@@ -15,7 +15,7 @@ assignees: ""
 ## Environment
 
 - macOS:
-- Codex.app installed: yes/no
+- ChatGPT.app or legacy Codex.app installed: yes/no
 - Install method: source build / other
 
 ## Notes

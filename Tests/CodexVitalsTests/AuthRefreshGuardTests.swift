@@ -43,7 +43,7 @@ final class AuthRefreshGuardTests: XCTestCase {
         let serviceURL = root.appendingPathComponent("Sources/CodexVitals/CodexAccountCaptureService.swift")
         let text = try String(contentsOf: serviceURL, encoding: .utf8)
 
-        guard let terminateRange = text.range(of: "try terminateCodex()"),
+        guard let terminateRange = text.range(of: "try terminateCodex(appURL: appURL)"),
               let copyRange = text.range(
                 of: "try copyReplacing(source: profile.authURL, destination: defaultAuthURL)",
                 range: terminateRange.upperBound..<text.endIndex
@@ -69,7 +69,7 @@ final class AuthRefreshGuardTests: XCTestCase {
 
         guard let switchRange = text.range(of: "func switchToAccount"),
               let terminateRange = text.range(
-                of: "try terminateCodex()",
+                of: "try terminateCodex(appURL: appURL)",
                 range: switchRange.upperBound..<text.endIndex
               ) else {
             return XCTFail("Could not locate switch preflight")
@@ -152,7 +152,7 @@ final class AuthRefreshGuardTests: XCTestCase {
         let text = try String(contentsOf: serviceURL, encoding: .utf8)
 
         guard let copyRange = text.range(of: "try copyReplacing(source: profile.authURL, destination: defaultAuthURL)"),
-              let launchRange = text.range(of: "try launchCodex()", range: copyRange.upperBound..<text.endIndex) else {
+              let launchRange = text.range(of: "try launchCodex(at: appURL)", range: copyRange.upperBound..<text.endIndex) else {
             return XCTFail("Could not locate the Codex launch handoff")
         }
 
@@ -201,7 +201,7 @@ final class AuthRefreshGuardTests: XCTestCase {
         let terminateCodexBody = text[terminateCodexRange.lowerBound..<runningAppsRange.lowerBound]
         XCTAssertTrue(
             terminateCodexBody.contains("terminateAllCodexProcesses()"),
-            "Codex.app graceful shutdown failure must fall back to aggressive process termination"
+            "ChatGPT/Codex graceful shutdown failure must fall back to aggressive process termination"
         )
         // Layer 3: Verify auth is synced during shutdown
         XCTAssertTrue(
@@ -231,8 +231,12 @@ final class AuthRefreshGuardTests: XCTestCase {
         }
         let processMatcher = text[processRange.lowerBound..<consumerRange.lowerBound]
         XCTAssertTrue(
+            processMatcher.contains(#"contains("/applications/chatgpt.app/contents/")"#),
+            "Use in Codex must terminate every ChatGPT-hosted Codex helper process"
+        )
+        XCTAssertTrue(
             processMatcher.contains(#"contains("/applications/codex.app/contents/")"#),
-            "Use in Codex must terminate every Codex.app helper process"
+            "Use in Codex must keep supporting legacy Codex.app helper processes"
         )
 
         guard let envRange = text.range(
@@ -250,6 +254,29 @@ final class AuthRefreshGuardTests: XCTestCase {
         XCTAssertTrue(executableMatcher.contains(#"hasPrefix("codex ")"#))
         XCTAssertTrue(consumerMatcher.contains(#"contains("/codex ")"#))
         XCTAssertTrue(executableMatcher.contains(#"contains("/codex/codex ")"#))
+    }
+
+    func testSwitchSupportsChatGPTAndLegacyCodexHostApps() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let serviceURL = root.appendingPathComponent("Sources/CodexVitals/CodexAccountCaptureService.swift")
+        let text = try String(contentsOf: serviceURL, encoding: .utf8)
+
+        XCTAssertTrue(
+            text.contains(#"URL(fileURLWithPath: "/Applications/ChatGPT.app")"#),
+            "Account switching must support the current ChatGPT app"
+        )
+        XCTAssertTrue(
+            text.contains(#"URL(fileURLWithPath: "/Applications/Codex.app")"#),
+            "Account switching must preserve legacy Codex.app compatibility"
+        )
+        XCTAssertTrue(
+            text.contains("urlForApplication(withBundleIdentifier: codexBundleIdentifier)"),
+            "Account switching must discover moved app bundles through Launch Services"
+        )
+        XCTAssertTrue(
+            text.contains("guard let appURL = installedAppURL"),
+            "Account switching must relaunch the host app that was actually discovered"
+        )
     }
 
     func testVitalsPersistsLatestAuthBeforeNormalTermination() throws {

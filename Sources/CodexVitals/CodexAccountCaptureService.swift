@@ -872,7 +872,7 @@ enum CodexAccountSwitchError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .codexAppMissing:
-            return "Codex.app was not found in /Applications."
+            return "ChatGPT or Codex was not found on this Mac."
         case let .capturedProfileMissing(email):
             return "Captured auth was not found for \(email)."
         case let .capturedProfileAmbiguous(email):
@@ -892,8 +892,11 @@ enum CodexAccountSwitchError: LocalizedError {
 final class CodexAccountSwitchService: @unchecked Sendable {
     private let fileManager = FileManager.default
     private let homeURL = FileManager.default.homeDirectoryForCurrentUser
-    private let appURL = URL(fileURLWithPath: "/Applications/Codex.app")
     private let codexBundleIdentifier = "com.openai.codex"
+    private let knownAppURLs = [
+        URL(fileURLWithPath: "/Applications/ChatGPT.app"),
+        URL(fileURLWithPath: "/Applications/Codex.app"),
+    ]
     private let authMirrorService = CodexAuthMirrorService()
 
     private var profileStoreURL: URL {
@@ -904,17 +907,24 @@ final class CodexAccountSwitchService: @unchecked Sendable {
         homeURL.appendingPathComponent(".codex/auth.json")
     }
 
-    private var bundledCodexURL: URL {
-        appURL.appendingPathComponent("Contents/Resources/codex")
+    private var installedAppURL: URL? {
+        if let knownURL = knownAppURLs.first(where: { fileManager.fileExists(atPath: $0.path) }) {
+            return knownURL
+        }
+
+        if let runningURL = runningCodexApps().compactMap(\.bundleURL).first {
+            return runningURL
+        }
+
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: codexBundleIdentifier)
     }
 
     var isCodexInstalled: Bool {
-        fileManager.fileExists(atPath: appURL.path)
-            || !NSRunningApplication.runningApplications(withBundleIdentifier: codexBundleIdentifier).isEmpty
+        installedAppURL != nil
     }
 
     func switchToAccount(_ account: Account) throws -> CodexSwitchResult {
-        guard isCodexInstalled else {
+        guard let appURL = installedAppURL else {
             throw CodexAccountSwitchError.codexAppMissing
         }
 
@@ -928,13 +938,13 @@ final class CodexAccountSwitchService: @unchecked Sendable {
         var didLaunchCodex = false
         defer {
             if didTerminateCodex && !didLaunchCodex {
-                try? launchCodex()
+                try? launchCodex(at: appURL)
             }
         }
 
         let codexWasRunning = !runningCodexApps().isEmpty
         do {
-            try terminateCodex()
+            try terminateCodex(appURL: appURL)
             didTerminateCodex = codexWasRunning
         } catch CodexAccountSwitchError.codexDidNotQuit {
             throw CodexAccountSwitchError.codexDidNotQuit
@@ -957,7 +967,7 @@ final class CodexAccountSwitchService: @unchecked Sendable {
             return profile
         }
         try waitForCodexSQLiteHandlesToClose()
-        try launchCodex()
+        try launchCodex(at: appURL)
         didLaunchCodex = true
 
         return CodexSwitchResult(
@@ -1070,7 +1080,7 @@ final class CodexAccountSwitchService: @unchecked Sendable {
         }
     }
 
-    private func terminateCodex() throws {
+    private func terminateCodex(appURL: URL) throws {
         let runningApps = runningCodexApps()
         for app in runningApps {
             app.terminate()
@@ -1101,7 +1111,7 @@ final class CodexAccountSwitchService: @unchecked Sendable {
             throw CodexAccountSwitchError.codexDidNotQuit
         }
 
-        stopAppServerDaemonBestEffort()
+        stopAppServerDaemonBestEffort(appURL: appURL)
         terminateAllCodexProcesses()
 
         // Final sync after everything is dead to capture any last writes.
@@ -1114,11 +1124,12 @@ final class CodexAccountSwitchService: @unchecked Sendable {
             .filter { !$0.isTerminated }
     }
 
-    private func launchCodex() throws {
+    private func launchCodex(at appURL: URL) throws {
         try run("/usr/bin/open", ["-n", appURL.path])
     }
 
-    private func stopAppServerDaemonBestEffort() {
+    private func stopAppServerDaemonBestEffort(appURL: URL) {
+        let bundledCodexURL = appURL.appendingPathComponent("Contents/Resources/codex")
         guard fileManager.isExecutableFile(atPath: bundledCodexURL.path) else { return }
         _ = try? run(bundledCodexURL.path, ["app-server", "daemon", "stop"])
     }
@@ -1252,7 +1263,8 @@ final class CodexAccountSwitchService: @unchecked Sendable {
 
     private func isCodexProcess(_ command: String) -> Bool {
         let lowercased = command.lowercased()
-        if lowercased.contains("/applications/codex.app/contents/") {
+        if lowercased.contains("/applications/chatgpt.app/contents/")
+            || lowercased.contains("/applications/codex.app/contents/") {
             return true
         }
         return isCodexAuthConsumer(command)

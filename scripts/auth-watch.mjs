@@ -135,6 +135,7 @@ function capturedProfilesSummary() {
 function processSummary() {
   const patterns = [
     "CodexVitals",
+    "ChatGPT.app",
     "Codex.app",
     "Codex Helper",
     "codex app-server",

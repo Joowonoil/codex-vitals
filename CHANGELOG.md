@@ -2,6 +2,10 @@
 
 All notable changes to Codex Vitals will be documented here.
 
+## 1.2.2 - 2026-07-13
+
+- Added support for the Codex experience integrated into `ChatGPT.app` while preserving compatibility with the legacy `Codex.app`.
+
 ## 1.2.1 - 2026-07-03
 
 - Fixed the menu bar popover toggle so clicking the status bar icon again closes the popover instead of closing and immediately reopening it.

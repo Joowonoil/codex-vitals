@@ -59,7 +59,7 @@ Codex Vitals automatically re-orders your accounts so the best one to use right 
 ## Requirements
 
 - macOS 13 (Ventura) or newer
-- [Codex.app](https://github.com/openai/codex) installed in `/Applications/Codex.app` (for account switching)
+- ChatGPT for macOS installed as `ChatGPT.app`, or the legacy `Codex.app` (for account switching)
 
 ## Installation
 
