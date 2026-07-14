@@ -36,6 +36,15 @@ struct ContentView: View {
                         AccountListView(vm: viewModel)
                             .frame(maxWidth: .infinity)
                     }
+                    .background(Theme.listSurfaceTint)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.panelCornerRadius, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: Theme.panelCornerRadius, style: .continuous)
+                            .stroke(Theme.listBorder, lineWidth: 0.6)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 7)
                     .frame(maxHeight: Self.listMaxHeight())
                 }
             }
@@ -120,20 +129,20 @@ struct HeaderView: View {
     var body: some View {
         HStack(spacing: 8) {
             if isShowingSettings {
-                Button {
-                    isShowingSettings = false
-                } label: {
+                HeaderActionButton(
+                    action: {
+                        isShowingSettings = false
+                    },
+                    helpText: "Back",
+                    accessibilityText: "Back to accounts"
+                ) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.secondary)
-                        .frame(width: 24, height: 22)
                 }
-                .buttonStyle(.plain)
-                .help("Back")
-                .accessibilityLabel("Back to accounts")
 
                 Text("Settings")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Spacer(minLength: 0)
@@ -144,82 +153,129 @@ struct HeaderView: View {
                 Spacer(minLength: 0)
             }
 
-            if !isShowingSettings {
-                searchButton
-
-                Button {
-                    if vm.isAddingAccount {
-                        vm.cancelRelogin()
-                    } else {
-                        vm.addAccount()
-                    }
-                } label: {
-                    Image(systemName: vm.isAddingAccount ? "xmark.circle.fill" : "person.badge.plus")
-                        .font(.system(size: 13))
-                        .foregroundColor(vm.isAddingAccount ? .secondary : Theme.healthyAccent)
-                        .frame(width: 24, height: 22)
-                }
-                .buttonStyle(.plain)
-                .disabled(vm.hasPendingAccountAction && !vm.isAddingAccount)
-                .help(vm.isAddingAccount ? "Cancel" : "Add account")
-                .accessibilityLabel(vm.isAddingAccount ? "Cancel adding account" : "Add account")
-
-                workspaceGroupingButton
-
-                Button {
-                    requestRefresh()
-                } label: {
-                    if vm.isLoading {
-                        ProgressView().controlSize(.small)
-                    } else if showsRefreshSuccess {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Theme.healthyAccent)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14)).foregroundColor(.secondary)
-                    }
-                }
-                .buttonStyle(.plain).frame(width: 22, height: 22)
-                .disabled(vm.isLoading)
-                .help(showsRefreshSuccess ? "Updated" : "Refresh")
-                .accessibilityLabel(showsRefreshSuccess ? "Usage updated" : "Refresh all accounts")
-
-                Divider()
-                    .frame(height: 16)
-                    .opacity(0.24)
-                    .padding(.horizontal, 2)
-
-                Button {
-                    isShowingSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .frame(width: 24, height: 22)
-                }
-                .buttonStyle(.plain)
-                .help("Settings")
-                .accessibilityLabel("Settings")
-            }
-
-            Button {
-                NSApp.terminate(nil)
-            } label: {
-                Image(systemName: "power")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .frame(width: 24, height: 22)
-            }
-            .buttonStyle(.plain)
-            .help("Quit Codex Vitals")
-            .accessibilityLabel("Quit Codex Vitals")
+            toolbarControls
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .frame(height: 44)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .frame(height: 48)
         .animation(.easeInOut(duration: 0.16), value: shouldShowSearchField)
         .onReceive(vm.$isLoading.dropFirst()) { isLoading in
             handleLoadingChange(isLoading)
+        }
+    }
+
+    @ViewBuilder
+    private var toolbarControls: some View {
+        HStack(spacing: 1) {
+            if !isShowingSettings {
+                HeaderActionButton(
+                    action: toggleSearch,
+                    isSelected: shouldShowSearchField,
+                    helpText: shouldShowSearchField ? "Hide search" : "Search",
+                    accessibilityText: shouldShowSearchField ? "Hide search" : "Search accounts"
+                ) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(shouldShowSearchField ? .primary : .secondary)
+                }
+
+                HeaderActionButton(
+                    action: toggleAccountCapture,
+                    isSelected: vm.isAddingAccount,
+                    isDisabled: vm.hasPendingAccountAction && !vm.isAddingAccount,
+                    helpText: vm.isAddingAccount ? "Cancel" : "Add account",
+                    accessibilityText: vm.isAddingAccount ? "Cancel adding account" : "Add account"
+                ) {
+                    Image(systemName: vm.isAddingAccount ? "xmark.circle.fill" : "person.badge.plus")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(vm.isAddingAccount ? .secondary : Theme.healthyAccent)
+                }
+
+                HeaderActionButton(
+                    action: { vm.toggleGroupByWorkspace() },
+                    isSelected: vm.groupByWorkspace,
+                    helpText: vm.groupByWorkspace ? "Ungroup workspaces" : "Group by workspace",
+                    accessibilityText: vm.groupByWorkspace ? "Ungroup workspaces" : "Group accounts by workspace"
+                ) {
+                    Image(systemName: "rectangle.3.group")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(vm.groupByWorkspace ? .primary : .secondary)
+                }
+
+                HeaderActionButton(
+                    action: requestRefresh,
+                    isDisabled: vm.isLoading,
+                    helpText: showsRefreshSuccess ? "Updated" : "Refresh",
+                    accessibilityText: showsRefreshSuccess ? "Usage updated" : "Refresh all accounts"
+                ) {
+                    if vm.isLoading {
+                        ProgressView()
+                            .controlSize(.mini)
+                    } else if showsRefreshSuccess {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(Theme.healthyAccent)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                toolbarDivider
+
+                HeaderActionButton(
+                    action: { isShowingSettings = true },
+                    helpText: "Settings",
+                    accessibilityText: "Settings"
+                ) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            HeaderActionButton(
+                action: { NSApp.terminate(nil) },
+                helpText: "Quit Codex Vitals",
+                accessibilityText: "Quit Codex Vitals"
+            ) {
+                Image(systemName: "power")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(3)
+        .background(Theme.toolbarSurface)
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
+        .overlay {
+            Capsule()
+                .stroke(Theme.toolbarBorder, lineWidth: 0.6)
+        }
+        .shadow(color: .black.opacity(0.07), radius: 3, y: 1)
+    }
+
+    private var toolbarDivider: some View {
+        Rectangle()
+            .fill(Theme.controlBorder)
+            .frame(width: 0.5, height: 14)
+            .padding(.horizontal, 1)
+    }
+
+    private func toggleSearch() {
+        if shouldShowSearchField && vm.searchText.isEmpty {
+            isSearchVisible = false
+        } else {
+            isSearchVisible = true
+        }
+    }
+
+    private func toggleAccountCapture() {
+        if vm.isAddingAccount {
+            vm.cancelRelogin()
+        } else {
+            vm.addAccount()
         }
     }
 
@@ -230,10 +286,10 @@ struct HeaderView: View {
     private var appBrandLockup: some View {
         HStack(spacing: 7) {
             AppBrandIcon()
-                .frame(width: 20, height: 20)
+                .frame(width: 22, height: 22)
 
             Text("Codex Vitals")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
         }
@@ -263,49 +319,18 @@ struct HeaderView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(Color.primary.opacity(0.07))
-        .cornerRadius(7)
+        .background(Theme.toolbarSurface)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.controlCornerRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.controlCornerRadius, style: .continuous)
+                .stroke(Theme.controlBorder, lineWidth: 0.6)
+        }
         .transition(.opacity.combined(with: .move(edge: .trailing)))
     }
 
     private var searchFieldWidth: CGFloat {
         170
-    }
-
-    private var searchButton: some View {
-        Button {
-            if shouldShowSearchField && vm.searchText.isEmpty {
-                isSearchVisible = false
-            } else {
-                isSearchVisible = true
-            }
-        } label: {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(shouldShowSearchField ? .primary : .secondary)
-                .frame(width: 24, height: 22)
-                .background(shouldShowSearchField ? Color.primary.opacity(0.12) : Color.clear)
-                .cornerRadius(6)
-        }
-        .buttonStyle(.plain)
-        .help(shouldShowSearchField ? "Hide search" : "Search")
-        .accessibilityLabel(shouldShowSearchField ? "Hide search" : "Search accounts")
-    }
-
-    private var workspaceGroupingButton: some View {
-        Button {
-            vm.toggleGroupByWorkspace()
-        } label: {
-            Image(systemName: "rectangle.3.group")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(vm.groupByWorkspace ? .primary : .secondary)
-                .frame(width: 28, height: 24)
-                .background(vm.groupByWorkspace ? Color.primary.opacity(0.12) : Color.clear)
-                .cornerRadius(6)
-        }
-        .buttonStyle(.plain)
-        .help(vm.groupByWorkspace ? "Ungroup workspaces" : "Group by workspace")
-        .accessibilityLabel(vm.groupByWorkspace ? "Ungroup workspaces" : "Group accounts by workspace")
     }
 
     private func requestRefresh() {
@@ -326,6 +351,67 @@ struct HeaderView: View {
             guard !Task.isCancelled else { return }
             showsRefreshSuccess = false
         }
+    }
+}
+
+private struct HeaderActionButton<Label: View>: View {
+    let action: () -> Void
+    var isSelected = false
+    var isDisabled = false
+    let helpText: String
+    let accessibilityText: String
+    let label: Label
+    @State private var isHovered = false
+
+    init(
+        action: @escaping () -> Void,
+        isSelected: Bool = false,
+        isDisabled: Bool = false,
+        helpText: String,
+        accessibilityText: String,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.action = action
+        self.isSelected = isSelected
+        self.isDisabled = isDisabled
+        self.helpText = helpText
+        self.accessibilityText = accessibilityText
+        self.label = label()
+    }
+
+    var body: some View {
+        Button(action: action) {
+            label
+                .frame(width: 26, height: 24)
+                .background {
+                    RoundedRectangle(cornerRadius: Theme.controlCornerRadius, style: .continuous)
+                        .fill(controlSurface)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: Theme.controlCornerRadius, style: .continuous)
+                        .stroke(controlBorder, lineWidth: 0.5)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: Theme.controlCornerRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.55 : 1)
+        .scaleEffect(isHovered && !isDisabled ? 1.035 : 1)
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+        .help(helpText)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var controlSurface: Color {
+        if isSelected {
+            return Theme.controlSelectedSurface
+        }
+        return isHovered ? Theme.controlHoverSurface : .clear
+    }
+
+    private var controlBorder: Color {
+        isSelected || isHovered ? Theme.controlBorder : .clear
     }
 }
 
@@ -351,10 +437,10 @@ struct AppBrandIcon: View {
                     .foregroundStyle(Theme.healthyAccent)
             }
         }
-        .frame(width: 20, height: 20)
-        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .frame(width: 22, height: 22)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
         }
     }

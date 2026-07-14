@@ -319,13 +319,30 @@ struct Theme {
     static let warningAccent = Color(hex: "FF9F0A")
     static let dangerAccent = Color(hex: "FF453A")
 
+    static let panelCornerRadius: CGFloat = 12
+    static let rowCornerRadius: CGFloat = 9
+    static let controlCornerRadius: CGFloat = 7
+
     static let healthyText = Color(lightHex: "157D40", darkHex: "30D158")
     static let warningText = Color(lightHex: "A25800", darkHex: "FF9F0A")
     static let dangerText = Color(lightHex: "B92F27", darkHex: "FF453A")
 
-    static let popoverSurfaceTint = Color(lightHex: "18FFFFFF", darkHex: "12000000")
-    static let metricSurface = Color(lightHex: "42FFFFFF", darkHex: "14FFFFFF")
-    static let metricBorder = Color(lightHex: "18000000", darkHex: "24FFFFFF")
+    static let popoverSurfaceTint = Color(lightHex: "12FFFFFF", darkHex: "0D000000")
+    static let toolbarSurface = Color(lightHex: "28FFFFFF", darkHex: "12FFFFFF")
+    static let toolbarBorder = Color(lightHex: "1F000000", darkHex: "2BFFFFFF")
+    static let controlHoverSurface = Color(lightHex: "12000000", darkHex: "18FFFFFF")
+    static let controlSelectedSurface = Color(lightHex: "1A000000", darkHex: "24FFFFFF")
+    static let controlBorder = Color(lightHex: "12000000", darkHex: "20FFFFFF")
+    static let listSurfaceTint = Color(lightHex: "26FFFFFF", darkHex: "0FFFFFFF")
+    static let listBorder = Color(lightHex: "20000000", darkHex: "30FFFFFF")
+    static let listDivider = Color(lightHex: "16000000", darkHex: "20FFFFFF")
+    static let sectionSurface = Color(lightHex: "08000000", darkHex: "0FFFFFFF")
+    static let rowHoverSurface = Color(lightHex: "10000000", darkHex: "18FFFFFF")
+    static let rowHoverBorder = Color(lightHex: "12000000", darkHex: "20FFFFFF")
+    static let activeRowSurface = Color(lightHex: "1230D158", darkHex: "1630D158")
+    static let activeRowBorder = Color(lightHex: "2030D158", darkHex: "2B30D158")
+    static let metricSurface = Color(lightHex: "2EFFFFFF", darkHex: "18FFFFFF")
+    static let metricBorder = Color(lightHex: "15000000", darkHex: "2BFFFFFF")
     static let warningSurface = Color(lightHex: "14FF9F0A", darkHex: "1FFF9F0A")
     static let warningBorder = Color(lightHex: "33914C00", darkHex: "38FF9F0A")
 
@@ -357,12 +374,12 @@ struct Theme {
     /// Workspace chip background.
     static func workspaceColor(for ws: String) -> Color {
         let hex = workspaceHex(for: ws)
-        return Color(lightHex: "38\(hex)", darkHex: "4D\(hex)")
+        return Color(lightHex: "24\(hex)", darkHex: "35\(hex)")
     }
 
     static func workspaceBorderColor(for ws: String) -> Color {
         let hex = workspaceHex(for: ws)
-        return Color(lightHex: "45\(hex)", darkHex: "5C\(hex)")
+        return Color(lightHex: "35\(hex)", darkHex: "48\(hex)")
     }
 
     /// Keep chip labels colorful while darkening or lightening the accent for contrast.

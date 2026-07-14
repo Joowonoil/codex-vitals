@@ -2,6 +2,13 @@
 
 All notable changes to Codex Vitals will be documented here.
 
+## 1.3.1 - 2026-07-15
+
+- Reworked the header into a connected glass control group that matches the RamterStudio menu bar app family.
+- Unified the account list into one translucent panel with consistent corner radii, borders, and separators.
+- Refined active-account and hover states while reducing plan and workspace badge saturation.
+- Improved compact-row typography without increasing the popover width or reducing visible account details.
+
 ## 1.3.0 - 2026-07-13
 
 - Added signed in-app updates with manual checks, 24-hour background checks, and optional automatic installation through Sparkle.

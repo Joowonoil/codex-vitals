@@ -108,6 +108,7 @@ struct AccountListView: View {
                 }
             }
         }
+        .padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -145,7 +146,10 @@ struct AccountListView: View {
         ForEach(Array(accs.enumerated()), id: \.element.id) { i, acc in
             accountRow(for: acc)
             if i < accs.count - 1 {
-                Divider().padding(.horizontal, 12).opacity(0.08)
+                Rectangle()
+                    .fill(Theme.listDivider)
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 10)
             }
         }
     }
@@ -192,8 +196,8 @@ struct SectionHeader: View {
                 .foregroundColor(.secondary)
             Spacer()
         }
-        .padding(.horizontal, 12).frame(height: 28)
-        .background(Color.primary.opacity(0.03))
+        .padding(.horizontal, 12).frame(height: 27)
+        .background(Theme.sectionSurface)
         .contentShape(Rectangle())
         .contextMenu {
             Button(hasAlias ? "Edit Workspace Name..." : "Set Workspace Name...") {
@@ -255,8 +259,8 @@ struct ExhaustedSeparatorHeader: View {
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .frame(height: 28)
-            .background(Color.primary.opacity(0.03))
+            .frame(height: 27)
+            .background(Theme.sectionSurface)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -283,8 +287,8 @@ struct FreeWaitingGroupHeader: View {
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .frame(height: 28)
-            .background(Color.primary.opacity(0.025))
+            .frame(height: 27)
+            .background(Theme.sectionSurface.opacity(0.8))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -483,9 +487,16 @@ struct AccountCompactRow: View {
 
     private var rowBackgroundColor: Color {
         if isActiveInCodex {
-            return Theme.healthyAccent.opacity(hovered ? 0.08 : 0.045)
+            return Theme.activeRowSurface.opacity(hovered ? 1 : 0.78)
         }
-        return hovered ? Color.primary.opacity(0.06) : .clear
+        return hovered ? Theme.rowHoverSurface : .clear
+    }
+
+    private var rowBorderColor: Color {
+        if isActiveInCodex {
+            return Theme.activeRowBorder
+        }
+        return hovered ? Theme.rowHoverBorder : .clear
     }
 
     var body: some View {
@@ -522,17 +533,29 @@ struct AccountCompactRow: View {
             .contentShape(Rectangle())
         }
         .frame(height: rowHeight)
-        .background(rowBackgroundColor)
+        .background {
+            RoundedRectangle(cornerRadius: Theme.rowCornerRadius, style: .continuous)
+                .fill(rowBackgroundColor)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.rowCornerRadius, style: .continuous)
+                .stroke(rowBorderColor, lineWidth: 0.5)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+        }
         .overlay(alignment: .leading) {
             if isActiveInCodex {
                 Capsule()
                     .fill(Theme.healthyAccent)
-                    .frame(width: 2, height: max(14, rowHeight - 8))
-                    .padding(.leading, 4)
+                    .frame(width: 2.5, height: max(14, rowHeight - 12))
+                    .padding(.leading, 6)
             }
         }
         .contentShape(Rectangle())
         .onHover { hovered = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovered)
         .contextMenu {
             Button("Move Up") {
                 moveUp()
@@ -585,7 +608,7 @@ struct AccountCompactRow: View {
                         .truncationMode(.tail)
                 }
                 Text(account.email)
-                    .font(.system(size: 8.5))
+                    .font(.system(size: 9.5))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -746,7 +769,7 @@ struct ResetTimeBadge: View {
                     .font(.system(size: 7.5, weight: .semibold))
             }
             Text(text)
-                .font(.system(size: 9, weight: .medium))
+                .font(.system(size: 9.5, weight: .medium))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
@@ -755,11 +778,11 @@ struct ResetTimeBadge: View {
         .padding(.horizontal, 4)
         .frame(width: width, height: 18, alignment: .center)
         .background {
-            RoundedRectangle(cornerRadius: 5)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Theme.metricSurface)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 5)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .stroke(Theme.metricBorder, lineWidth: 0.5)
         }
         .help(help)
@@ -798,7 +821,7 @@ struct PlanBadge: View {
     var body: some View {
         if let text {
             Text(text)
-                .font(.system(size: compact ? 8 : 9, weight: .semibold))
+                .font(.system(size: compact ? 8.5 : 9, weight: .semibold))
                 .foregroundStyle(Theme.workspaceTextColor(for: text))
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
@@ -965,7 +988,7 @@ struct QuotaMeter: View {
     var body: some View {
         HStack(spacing: 4) {
             Text(label)
-                .font(.system(size: 8.5, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold))
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -975,7 +998,7 @@ struct QuotaMeter: View {
                 .frame(width: 26)
 
             Text(String(format: "%.0f%%", pct))
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .monospacedDigit()
                 .foregroundColor(dimmed ? .secondary : Theme.statusTextColor(for: pct))
                 .lineLimit(1)
@@ -985,11 +1008,11 @@ struct QuotaMeter: View {
         .padding(.horizontal, 4)
         .frame(width: width, height: 18, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 5)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(dimmed ? Theme.metricSurface.opacity(0.7) : Theme.metricSurface)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 5)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .stroke(Theme.metricBorder, lineWidth: 0.6)
         }
         .opacity(dimmed ? 0.76 : 1)
@@ -1042,16 +1065,16 @@ struct WorkspaceChip: View {
 
     var body: some View {
         Text(ws)
-            .font(.system(size: compact ? 9 : 11, weight: .medium))
+            .font(.system(size: compact ? 9.5 : 11, weight: .medium))
             .foregroundColor(Theme.workspaceTextColor(for: colorKey))
             .lineLimit(1)
             .truncationMode(.tail)
             .padding(.horizontal, compact ? 4 : 6)
             .padding(.vertical, compact ? 1 : 2)
             .background(Theme.workspaceColor(for: colorKey))
-            .cornerRadius(4)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .stroke(Theme.workspaceBorderColor(for: colorKey), lineWidth: 0.5)
             }
     }
