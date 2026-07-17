@@ -34,6 +34,25 @@ The direct build pins WinSparkle 0.9.3, verifies the official archive SHA-256,
 and bundles its x64 DLL. A Store build can be produced with `-Channel Store`;
 that build omits WinSparkle because Microsoft Store manages updates.
 
+## Build the Microsoft Store Package
+
+The Store package uses the identity reserved in Partner Center and is built as
+an unsigned x64 MSIX. Microsoft Store signs the accepted package during
+publication.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\windows\package_store.ps1 -Clean -Version 1.0.0.0
+```
+
+This produces:
+
+- `%REPO%\ReleaseArtifacts\Store\CodexVitals-Windows-Store-1.0.0.0-x64.msix`
+- the package SHA-256 file
+
+The package requires Windows 10 version 2004 (build 19041) or newer. It declares
+the `runFullTrust` restricted capability because Codex Vitals is a packaged
+desktop application that reads and updates the user's local Codex state.
+
 ## Build the Installer
 
 ```powershell
@@ -58,6 +77,28 @@ updated or uninstalled.
 The update signing key is not stored in this repository. The release script
 expects it at `%APPDATA%\\RamterStudio\\ReleaseKeys\\CodexVitals\\windows-update-private.key`
 unless `-PrivateKeyPath` is provided.
+
+## Source of Truth and Windows Sync
+
+The canonical source is the same GitHub repository used by the macOS app. Keep
+the full repository cloned on both platforms; Git transfers only changed
+objects, so a separate Taildrop mirror is unnecessary.
+
+- macOS working copy: `/Users/ramster/Developer/codex-vitals`
+- Windows working copy: `C:\Users\calor\Developer\codex-vitals`
+
+Before a Windows build:
+
+```powershell
+Set-Location C:\Users\calor\Developer\codex-vitals
+git pull --ff-only
+git status --short
+```
+
+Commit source changes on one machine, push them to GitHub, then use
+`git pull --ff-only` on the other machine. Do not copy the `windows/` directory
+over an unrelated checkout because that loses useful history and can leave
+stale renamed files behind.
 
 ## Tests
 

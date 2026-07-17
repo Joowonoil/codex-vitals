@@ -36,8 +36,11 @@ AGENTS.md
 ReleaseArtifacts/
 windows/build/
 windows/build-generated/
+windows/build-store/
 windows/.venv-build/
 windows/*.spec
+*.msix
+*.msixupload
 *.key
 *.pem
 *.pfx
