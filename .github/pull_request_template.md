@@ -4,6 +4,7 @@
 
 - [ ] `swift test`
 - [ ] `./build-app.sh` for UI, icon, Info.plist, or packaging changes
+- [ ] `python -m unittest discover windows\tests` for Windows changes
 
 ## Security checklist
 

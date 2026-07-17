@@ -21,3 +21,20 @@ jobs:
 
       - name: Run tests
         run: swift test
+
+  windows-test:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Windows tests
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = Join-Path $PWD "windows"
+          python -m unittest discover windows\tests

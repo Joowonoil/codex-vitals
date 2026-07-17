@@ -31,3 +31,13 @@ __pycache__/
 .idea/
 .vscode/
 AGENTS.md
+
+# Windows release outputs and private signing material
+ReleaseArtifacts/
+windows/build/
+windows/build-generated/
+windows/.venv-build/
+windows/*.spec
+*.key
+*.pem
+*.pfx

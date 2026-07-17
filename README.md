@@ -1,7 +1,8 @@
-# Codex Vitals: macOS Codex usage vitals in your menu bar
+# Codex Vitals: Codex account usage and switching on macOS and Windows
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS%2013+-000000?logo=apple" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows11" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/swift-5.9-F05138?logo=swift" alt="Swift 5.9">
   <a href="https://github.com/Joowonoil/codex-vitals/releases">
     <img src="https://img.shields.io/github/downloads/Joowonoil/codex-vitals/total?label=downloads&logo=github" alt="GitHub release downloads">
@@ -10,7 +11,13 @@
 </p>
 
 <p align="center">
-  An unofficial, local-first macOS menu bar app for monitoring Codex usage and switching the active account across Codex CLI and ChatGPT for macOS.
+  An unofficial, local-first app for monitoring Codex usage and switching the active account across Codex CLI and the desktop app.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Joowonoil/codex-vitals/releases/download/v1.3.1/CodexVitals-1.3.1.dmg"><strong>Download for macOS</strong></a>
+  &nbsp;&nbsp;·&nbsp;&nbsp;
+  <a href="https://github.com/Joowonoil/codex-vitals/releases/download/windows-v1.0.0/CodexVitals-Windows-1.0.0-Setup.exe"><strong>Download for Windows</strong></a>
 </p>
 
 <p align="center">
@@ -19,14 +26,14 @@
 
 ## Overview
 
-**Codex Vitals** helps you monitor OpenAI Codex usage, reset windows, account state, and workspaces directly from your Mac menu bar. When you choose an account, the same local Codex sign-in is applied to both Codex CLI in Terminal and the Codex experience in the official ChatGPT macOS app.
+**Codex Vitals** helps you monitor OpenAI Codex usage, reset windows, account state, and workspaces from the macOS menu bar or Windows system tray. When you choose an account, the same local Codex sign-in is applied to Codex CLI and the supported desktop app on that platform.
 
 - View best-effort Codex quota and usage across all your accounts
 - Group accounts by workspace/team
 - Add local display aliases so personal accounts are easy to identify
 - Reorder accounts manually from the row context menu
 - Instantly see which account is active
-- Switch the active account used by Codex CLI and ChatGPT for macOS with one click
+- Switch the active account used by Codex CLI and the desktop app with one click
 - Enable Launch at Login from the settings panel
 - Tune automatic refresh cadence from the settings panel
 - Check for signed app updates and enable automatic installation
@@ -40,12 +47,12 @@
 - **Workspace Grouping** — Accounts organized by team/workspace
 - **Display Aliases** — Local-only account labels for easier scanning while preserving the real email for auth and copy actions
 - **Account Health** — Visual indicators for invalid or deactivated accounts
-- **One-Click Switching** — Apply a saved account to both Codex CLI and the Codex experience in ChatGPT for macOS
+- **One-Click Switching** — Apply a saved account to Codex CLI and the supported desktop app
 - **Passive Auth Mirroring** — Codex-managed token rotations are mirrored back into saved local profiles
 - **Local-First** — All data stays on your machine; no cloud sync
 - **Secure Token Storage** — Sensitive files written with `0600` permissions
 - **Settings Panel** — Manage Launch at Login, usage refresh, and application updates inside the menu bar popover
-- **Signed Automatic Updates** — Sparkle checks every 24 hours and verifies update archives with EdDSA before installation
+- **Signed Automatic Updates** — Sparkle on macOS and WinSparkle on direct Windows builds verify EdDSA signatures before installation
 - **Network-Friendly Refresh** — Automatic usage refresh defaults to 10 minutes, metadata is cached, and account requests are throttled
 - **Smart Ordering** — Accounts are implicitly ranked by a composite score so the "best account to use now" surfaces to the top
 
@@ -55,10 +62,10 @@ Codex Vitals is designed for using several accounts in rotation without losing t
 
 1. **Check remaining usage** — Compare the quota left on every saved account and find one with capacity.
 2. **Press the switch button** — Choose that account directly from the menu bar list.
-3. **Use it in Terminal and ChatGPT** — The selected account becomes active for new Codex CLI runs and for Codex inside the official ChatGPT macOS app.
+3. **Use it in the CLI and desktop app** — The selected account becomes active for new Codex CLI runs and for ChatGPT on macOS or Codex Desktop on Windows.
 4. **Continue the same conversation** — Session history is stored locally, so `/resume` or `codex resume` can reopen earlier work even after the account changes.
 
-The conversation and workspace context remain available, while new requests use the switched account's limits and permissions. Switching is always manual. To protect the shared local auth file, Codex Vitals safely closes active Codex processes, creates a backup, applies the selected profile, and relaunches the macOS app; a running CLI session may therefore close during the handoff.
+The conversation and workspace context remain available, while new requests use the switched account's limits and permissions. Switching is always manual. Codex Vitals backs up the local state before applying the selected profile and relaunches the supported desktop app; a running CLI session may close during the handoff.
 
 ## Smart Ordering
 
@@ -71,16 +78,21 @@ Codex Vitals automatically re-orders your accounts so the best one to use right 
 
 ## Requirements
 
-- macOS 13 (Ventura) or newer
-- ChatGPT for macOS installed as `ChatGPT.app`, or the legacy `Codex.app` (for account switching)
+- **macOS:** macOS 13 or newer; ChatGPT installed as `ChatGPT.app`, or the legacy `Codex.app`
+- **Windows:** 64-bit Windows 10 or 11; Codex Desktop for desktop-session switching
+- A Codex CLI installation and accounts you control
 
 ## Installation
 
-### Option 1: Installer Package (Recommended)
+### macOS
 
 Download the latest `.pkg` from [Releases](../../releases), double-click to run the installer, and Codex Vitals will be installed to `/Applications`.
 
-### Option 2: Build From Source
+### Windows
+
+Download [`CodexVitals-Windows-1.0.0-Setup.exe`](https://github.com/Joowonoil/codex-vitals/releases/download/windows-v1.0.0/CodexVitals-Windows-1.0.0-Setup.exe) and run it. The current direct installer is not Authenticode-signed, so Microsoft Defender SmartScreen may show a warning. Choose **More info** and **Run anyway** only for the installer downloaded from this repository or [ramterstudio.com](https://ramterstudio.com/codex-vitals/).
+
+### Build From Source
 
 ```bash
 git clone https://github.com/Joowonoil/codex-vitals.git
@@ -102,6 +114,8 @@ To generate a `.pkg` installer from the built app:
 
 The installer will be created at `dist/CodexVitals-<version>.pkg`.
 
+Windows build and installer instructions are in [windows/README.md](windows/README.md).
+
 Sparkle release feeds are generated after a signed and notarized DMG is ready:
 
 ```bash
@@ -122,6 +136,7 @@ Codex Vitals is local-first and never syncs tokens or exposes a remote service.
 | `~/Library/Application Support/CodexVitals/accounts-snapshot.json` | Usage snapshots |
 | `~/Library/Application Support/CodexVitals/team-name-cache.json` | Team name cache |
 | `~/Library/Application Support/CodexVitals/backups/<timestamp>-remove-account/` | Backups before removal |
+| `%APPDATA%\CodexVitals\` | Windows accounts, snapshots, settings, and local backups |
 
 All sensitive files are written with `0600` permissions. Removal actions create backups before deleting profile data.
 
@@ -134,13 +149,14 @@ The app uses your local Codex/OpenAI auth tokens to query:
 - `https://auth.openai.com/oauth/authorize`
 - `https://auth.openai.com/oauth/token`
 - `https://ramterstudio.com/codex-vitals/appcast.xml` for application update metadata
+- `https://ramterstudio.com/codex-vitals/windows-appcast.xml` for direct Windows update metadata
 - GitHub Releases for signed application update downloads
 
 These are not official public APIs and may change without notice.
 
 Automatic usage refresh defaults to 10 minutes. Account metadata is cached for 6 hours during automatic refreshes, while manual refresh always requests fresh usage and metadata.
 
-Application update checks are separate from account refreshes. Sparkle checks at most once every 24 hours by default, and both automatic checks and automatic installation can be changed in Settings.
+Application update checks are separate from account refreshes. Sparkle and WinSparkle check at most once every 24 hours by default, and automatic checks can be changed in Settings. Microsoft Store builds leave updates to the Store.
 
 ### Security
 
@@ -152,7 +168,7 @@ Application update checks are separate from account refreshes. Sparkle checks at
 
 ### Does Codex Vitals work with OpenAI Codex?
 
-Yes. Codex Vitals is built for local OpenAI Codex account usage visibility and manual account switching on macOS.
+Yes. Codex Vitals is built for local OpenAI Codex account usage visibility and manual account switching on macOS and Windows.
 
 ### Does it track Codex quota and reset windows?
 
@@ -162,9 +178,9 @@ It shows best-effort Codex usage and reset timing from the local app using your 
 
 No. Codex Vitals does not automate account cycling. It only changes the active local Codex account after an explicit manual action.
 
-### Does account switching work in both Terminal and ChatGPT for macOS?
+### Does account switching work in both the CLI and desktop app?
 
-Yes. Check which account still has capacity, press its switch button, and Codex Vitals applies it to new Codex CLI runs and to Codex inside the official ChatGPT macOS app.
+Yes. Check which account still has capacity, press its switch button, and Codex Vitals applies it to new Codex CLI runs and to ChatGPT on macOS or Codex Desktop on Windows.
 
 ### Will switching accounts remove my Codex sessions?
 
@@ -176,7 +192,7 @@ No. Codex Vitals is local-first and does not sync tokens, account data, or usage
 
 ## Contributing
 
-Issues and pull requests are welcome. Please keep changes local-first, avoid token logging, and run `swift test` before opening a PR.
+Issues and pull requests are welcome. Please keep changes local-first, avoid token logging, and run the platform-specific tests before opening a PR.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -184,4 +200,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 [MIT](LICENSE)
 
-The distributed app includes Sparkle under its bundled license notice.
+The distributed apps include Sparkle or WinSparkle under their bundled license notices.
